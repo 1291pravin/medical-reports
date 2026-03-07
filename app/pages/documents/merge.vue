@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import type { Document } from '~/composables/useDocuments'
 
-const { members, fetchMembers } = useMembers()
+const { members } = await useMembers()
 const { documents, fetchDocuments } = useDocuments()
 
 const selectedMemberId = ref('')
 const selectedDocIds = ref<Set<string>>(new Set())
 const merging = ref(false)
-
-onMounted(fetchMembers)
 
 watch(selectedMemberId, async (id) => {
   if (id) {

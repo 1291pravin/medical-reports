@@ -8,6 +8,7 @@ import { familyMembers } from '~~/server/database/schema'
 
 const bodySchema = z.object({
   days: z.union([z.literal(1), z.literal(7), z.literal(30)]),
+  memberIds: z.array(z.string().uuid()).optional(),
 })
 
 function getFamilyDietPrompt(days: number): string {
@@ -78,14 +79,21 @@ function formatMemberContext(ctx: DietContext): string {
 
 export default defineEventHandler(async (event) => {
   const user = await requireAuth(event)
-  const { days } = await readValidatedBody(event, bodySchema.parse)
+  const { days, memberIds } = await readValidatedBody(event, bodySchema.parse)
 
   const db = useDb()
-  const members = await db
+  let allMembers = await db
     .select({ id: familyMembers.id, name: familyMembers.name })
     .from(familyMembers)
     .where(and(eq(familyMembers.userId, user.id), eq(familyMembers.isActive, true)))
     .orderBy(familyMembers.name)
+
+  // Filter to selected members if provided
+  if (memberIds?.length) {
+    allMembers = allMembers.filter(m => memberIds.includes(m.id))
+  }
+
+  const members = allMembers
 
   if (!members.length) {
     throw createError({ statusCode: 400, statusMessage: 'No family members found' })

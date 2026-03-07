@@ -1,8 +1,6 @@
 <script setup lang="ts">
 const { user } = useUserSession()
-const { members, loading, fetchMembers } = useMembers()
-
-onMounted(fetchMembers)
+const { members, loading } = await useMembers()
 
 const firstName = computed(() => user.value?.name?.split(' ')[0] || 'there')
 

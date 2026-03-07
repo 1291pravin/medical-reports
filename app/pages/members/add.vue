@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { createMember } = useMembers()
+const { createMember } = await useMembers()
 const router = useRouter()
 const loading = ref(false)
 const error = ref('')

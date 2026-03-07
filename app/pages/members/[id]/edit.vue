@@ -3,7 +3,7 @@ import type { FamilyMember } from '~/composables/useMembers'
 
 const route = useRoute()
 const router = useRouter()
-const { updateMember } = useMembers()
+const { updateMember } = await useMembers()
 
 const memberId = route.params.id as string
 const loading = ref(false)

@@ -5,7 +5,7 @@ import type { Medication } from '~/composables/useMedications'
 
 const route = useRoute()
 const router = useRouter()
-const { deleteMember } = useMembers()
+const { deleteMember } = await useMembers()
 
 const memberId = route.params.id as string
 const activeTab = ref('overview')
@@ -636,6 +636,139 @@ async function regenerateAll() {
         <div v-else class="text-center py-8 text-sm text-muted-foreground">
           <p>No conditions recorded yet</p>
         </div>
+      </TabsContent>
+
+      <!-- Diet Plan Tab -->
+      <TabsContent value="diet" class="mt-4 space-y-4">
+        <!-- Controls -->
+        <div class="flex items-center gap-3 flex-wrap">
+          <div class="flex items-center gap-1.5 rounded-lg border p-1">
+            <button
+              v-for="opt in [1, 7, 30] as const"
+              :key="opt"
+              class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+              :class="dietDays === opt ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+              @click="dietDays = opt"
+            >
+              {{ opt === 1 ? '1 Day' : opt === 7 ? '7 Days' : '30 Days' }}
+            </button>
+          </div>
+          <Button size="sm" :disabled="dietLoading" @click="generateDiet">
+            <svg v-if="dietLoading" xmlns="http://www.w3.org/2000/svg" class="mr-1.5 h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" class="mr-1.5 h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+            {{ dietLoading ? 'Generating...' : 'Generate Diet Plan' }}
+          </Button>
+        </div>
+
+        <!-- Error -->
+        <div v-if="dietError" class="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          {{ dietError }}
+        </div>
+
+        <!-- Loading skeleton -->
+        <div v-if="dietLoading" class="space-y-3">
+          <div v-for="i in 3" :key="i" class="h-24 animate-pulse rounded-lg bg-muted" />
+        </div>
+
+        <!-- Diet Plan Results -->
+        <template v-if="dietPlan && !dietLoading">
+          <!-- Overview -->
+          <Card>
+            <CardHeader>
+              <CardTitle class="text-base flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2h20"/><path d="M3.5 2v17a2.5 2.5 0 0 0 5 0V2"/><path d="M16 2v5a4 4 0 0 0 4 4"/><path d="M20 2v20"/></svg>
+                Diet Overview
+              </CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-3">
+              <p class="text-sm">{{ dietPlan.overview }}</p>
+              <p v-if="dietPlan.dailyCalorieTarget" class="text-sm">
+                <span class="font-medium">Daily Calories:</span> {{ dietPlan.dailyCalorieTarget }}
+              </p>
+              <div v-if="dietPlan.keyGuidelines?.length">
+                <h4 class="text-sm font-medium mb-1.5">Key Guidelines</h4>
+                <ul class="space-y-1">
+                  <li v-for="(g, i) in dietPlan.keyGuidelines" :key="i" class="flex items-start gap-2 text-sm text-muted-foreground">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-3 w-3 shrink-0 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+                    {{ g }}
+                  </li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+
+          <!-- Foods To Favor / Avoid -->
+          <div class="grid gap-4 sm:grid-cols-2">
+            <Card v-if="dietPlan.foodsToFavor?.length">
+              <CardHeader>
+                <CardTitle class="text-sm text-green-600 dark:text-green-400">Foods to Favor</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div class="flex flex-wrap gap-1.5">
+                  <Badge v-for="(f, i) in dietPlan.foodsToFavor" :key="i" variant="secondary" class="bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 text-xs">
+                    {{ f }}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+            <Card v-if="dietPlan.foodsToAvoid?.length">
+              <CardHeader>
+                <CardTitle class="text-sm text-red-600 dark:text-red-400">Foods to Avoid</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div class="flex flex-wrap gap-1.5">
+                  <Badge v-for="(f, i) in dietPlan.foodsToAvoid" :key="i" variant="secondary" class="bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400 text-xs">
+                    {{ f }}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <!-- Daily Meal Plans -->
+          <div v-for="day in dietPlan.days" :key="day.day" class="space-y-2">
+            <h3 class="text-sm font-semibold text-muted-foreground">Day {{ day.day }}</h3>
+            <Card>
+              <CardContent class="p-4 space-y-4">
+                <div
+                  v-for="(meal, mealKey) in day.meals"
+                  :key="mealKey"
+                  class="border-b last:border-0 pb-3 last:pb-0"
+                >
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="text-sm font-medium capitalize">{{ String(mealKey).replace(/([A-Z])/g, ' $1').trim() }}</span>
+                    <span v-if="meal?.time" class="text-xs text-muted-foreground">{{ meal.time }}</span>
+                  </div>
+                  <ul v-if="meal?.items?.length" class="ml-4 space-y-0.5">
+                    <li v-for="(item, j) in meal.items" :key="j" class="text-sm text-muted-foreground list-disc">
+                      {{ item }}
+                    </li>
+                  </ul>
+                  <p v-if="meal?.notes" class="mt-1 text-xs text-muted-foreground/70 italic">{{ meal.notes }}</p>
+                </div>
+
+                <div v-if="day.hydration" class="flex items-start gap-2 pt-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>
+                  <span class="text-xs text-muted-foreground">{{ day.hydration }}</span>
+                </div>
+
+                <div v-if="day.supplements?.length" class="flex items-start gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-purple-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H20a2 2 0 0 1 2 2v3"/></svg>
+                  <span class="text-xs text-muted-foreground">Supplements: {{ day.supplements.join(', ') }}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </template>
+
+        <!-- Empty state -->
+        <Card v-if="!dietPlan && !dietLoading && !dietError">
+          <CardContent class="py-8 text-center">
+            <p class="text-sm text-muted-foreground">
+              Generate a personalized diet plan for {{ member.name }} based on their health profile, conditions, and medications.
+            </p>
+          </CardContent>
+        </Card>
       </TabsContent>
     </Tabs>
 

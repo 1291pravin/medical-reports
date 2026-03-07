@@ -1,7 +1,5 @@
 <script setup lang="ts">
-const { members, loading, fetchMembers } = useMembers()
-
-onMounted(fetchMembers)
+const { members, loading } = await useMembers()
 </script>
 
 <template>

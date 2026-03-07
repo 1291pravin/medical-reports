@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const router = useRouter()
 const route = useRoute()
-const { members, fetchMembers } = useMembers()
+const { members } = await useMembers()
 const { uploadDocument, processDocument } = useDocuments()
 
 type FileStatus = 'pending' | 'uploading' | 'processing' | 'done' | 'error'
@@ -17,8 +17,6 @@ const step = ref<'upload' | 'processing' | 'done'>('upload')
 const selectedMemberId = ref((route.query.memberId as string) || '')
 const batchFiles = ref<BatchFile[]>([])
 const error = ref('')
-
-onMounted(fetchMembers)
 
 function handleFiles(files: File[]) {
   const newFiles = files.map((file) => ({

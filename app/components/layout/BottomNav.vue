@@ -6,6 +6,7 @@ const links = [
   { to: '/members', label: 'Members', icon: 'users' },
   { to: '/documents/upload', label: 'Upload', icon: 'upload' },
   { to: '/medications', label: 'Meds', icon: 'pill' },
+  { to: '/diet', label: 'Diet', icon: 'diet' },
   { to: '/search', label: 'Search', icon: 'search' },
 ]
 
@@ -33,6 +34,8 @@ function isActive(path: string) {
         <svg v-if="link.icon === 'upload'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
         <!-- Pill -->
         <svg v-if="link.icon === 'pill'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+        <!-- Diet -->
+        <svg v-if="link.icon === 'diet'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2h20"/><path d="M3.5 2v17a2.5 2.5 0 0 0 5 0V2"/><path d="M16 2v5a4 4 0 0 0 4 4"/><path d="M20 2v20"/></svg>
         <!-- Search -->
         <svg v-if="link.icon === 'search'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         {{ link.label }}

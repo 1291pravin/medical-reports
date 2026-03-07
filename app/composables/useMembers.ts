@@ -17,18 +17,12 @@ export interface FamilyMember {
   activeMedCount: number
 }
 
-export function useMembers() {
-  const members = useState<FamilyMember[]>('members', () => [])
-  const loading = ref(false)
+export async function useMembers() {
+  const { data: members, status, refresh } = await useFetch<FamilyMember[]>('/api/members', {
+    default: () => [],
+  })
 
-  async function fetchMembers() {
-    loading.value = true
-    try {
-      members.value = await $fetch<FamilyMember[]>('/api/members')
-    } finally {
-      loading.value = false
-    }
-  }
+  const loading = computed(() => status.value === 'pending')
 
   async function createMember(data: {
     name: string
@@ -45,7 +39,7 @@ export function useMembers() {
       method: 'POST',
       body: data,
     })
-    await fetchMembers()
+    await refresh()
     return member
   }
 
@@ -67,19 +61,19 @@ export function useMembers() {
       method: 'PUT',
       body: data,
     })
-    await fetchMembers()
+    await refresh()
     return updated
   }
 
   async function deleteMember(id: string) {
     await $fetch(`/api/members/${id}`, { method: 'DELETE' })
-    await fetchMembers()
+    await refresh()
   }
 
   return {
     members,
     loading,
-    fetchMembers,
+    refresh,
     createMember,
     updateMember,
     deleteMember,

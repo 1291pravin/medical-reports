@@ -307,7 +307,7 @@ class OpenAIProvider implements AIProvider {
         { role: 'user', content: userContent },
       ],
       response_format: { type: 'json_object' },
-      max_tokens: 4096,
+      max_tokens: 16384,
     })
 
     const content = response.choices[0]?.message?.content
