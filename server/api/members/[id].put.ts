@@ -3,10 +3,13 @@ import { eq, and } from 'drizzle-orm'
 import { useDb } from '~~/server/database'
 import { familyMembers } from '~~/server/database/schema'
 import { requireAuth } from '~~/server/utils/auth'
+import { serializeFamilyMember } from '~~/server/utils/family-member'
 
 const updateMemberSchema = z.object({
   name: z.string().min(1).optional(),
   dob: z.string().nullable().optional(),
+  weightKg: z.coerce.number().positive().max(500).nullable().optional(),
+  heightCm: z.coerce.number().positive().max(300).nullable().optional(),
   bloodGroup: z.string().nullable().optional(),
   allergies: z.array(z.string()).optional(),
   emergencyContact: z.string().nullable().optional(),
@@ -32,5 +35,5 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Member not found' })
   }
 
-  return updated
+  return serializeFamilyMember(updated)
 })

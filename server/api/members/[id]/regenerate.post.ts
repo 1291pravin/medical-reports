@@ -165,6 +165,10 @@ export default defineEventHandler(async (event) => {
     const summaryData = {
       patient: {
         age: ctx.member.age,
+        weightKg: ctx.member.weightKg,
+        heightCm: ctx.member.heightCm,
+        bmi: ctx.member.bmi,
+        bmiCategory: ctx.member.bmiCategory,
         bloodGroup: ctx.member.bloodGroup,
         allergies: ctx.member.allergies,
         dietPreference: ctx.member.dietPreference,

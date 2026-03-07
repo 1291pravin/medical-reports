@@ -2,6 +2,10 @@ export interface FamilyMember {
   id: string
   name: string
   dob: string | null
+  weightKg: number | null
+  heightCm: number | null
+  bmi: number | null
+  bmiCategory: string | null
   bloodGroup: string | null
   allergies: string[]
   emergencyContact: string | null
@@ -29,6 +33,8 @@ export function useMembers() {
   async function createMember(data: {
     name: string
     dob?: string
+    weightKg?: number
+    heightCm?: number
     bloodGroup?: string
     allergies?: string[]
     emergencyContact?: string
@@ -48,6 +54,8 @@ export function useMembers() {
     data: Partial<{
       name: string
       dob: string | null
+      weightKg: number | null
+      heightCm: number | null
       bloodGroup: string | null
       allergies: string[]
       emergencyContact: string | null

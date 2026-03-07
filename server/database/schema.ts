@@ -64,6 +64,8 @@ export const familyMembers = pgTable('family_members', {
     .notNull(),
   name: text('name').notNull(),
   dob: date('dob'),
+  weightKg: numeric('weight_kg', { precision: 5, scale: 2 }),
+  heightCm: numeric('height_cm', { precision: 5, scale: 2 }),
   bloodGroup: text('blood_group'),
   allergies: text('allergies').array(),
   emergencyContact: text('emergency_contact'),

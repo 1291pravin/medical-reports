@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { FamilyMember } from '~/composables/useMembers'
+import { summarizeBodyMetrics } from '~~/shared/utils/body-metrics'
 
 const props = defineProps<{
   member?: FamilyMember
@@ -8,11 +9,13 @@ const props = defineProps<{
 const emit = defineEmits<{
   submit: [data: {
     name: string
-    dob?: string
-    bloodGroup?: string
-    dietPreference?: string
+    dob?: string | null
+    weightKg?: number | null
+    heightCm?: number | null
+    bloodGroup?: string | null
+    dietPreference?: string | null
     allergies?: string[]
-    emergencyContact?: string
+    emergencyContact?: string | null
   }]
 }>()
 
@@ -22,6 +25,8 @@ const dietOptions = ['vegetarian', 'non-vegetarian', 'vegan', 'eggetarian']
 const form = reactive({
   name: props.member?.name || '',
   dob: props.member?.dob || '',
+  weightKg: props.member?.weightKg?.toString() || '',
+  heightCm: props.member?.heightCm?.toString() || '',
   bloodGroup: props.member?.bloodGroup || '',
   dietPreference: props.member?.dietPreference || '',
   emergencyContact: props.member?.emergencyContact || '',
@@ -29,6 +34,7 @@ const form = reactive({
 
 const allergies = ref<string[]>(props.member?.allergies || [])
 const newAllergy = ref('')
+const isEditing = computed(() => Boolean(props.member))
 
 function addAllergy() {
   const val = newAllergy.value.trim()
@@ -42,14 +48,32 @@ function removeAllergy(index: number) {
   allergies.value.splice(index, 1)
 }
 
+function normalizeString(value: string) {
+  if (value) return value
+  return isEditing.value ? null : undefined
+}
+
+function normalizeNumber(value: string) {
+  if (value) return Number(value)
+  return isEditing.value ? null : undefined
+}
+
+const bodyMetrics = computed(() => {
+  const weightKg = form.weightKg ? Number(form.weightKg) : null
+  const heightCm = form.heightCm ? Number(form.heightCm) : null
+  return summarizeBodyMetrics(weightKg, heightCm)
+})
+
 function handleSubmit() {
   emit('submit', {
     name: form.name,
-    dob: form.dob || undefined,
-    bloodGroup: form.bloodGroup || undefined,
-    dietPreference: form.dietPreference || undefined,
+    dob: normalizeString(form.dob),
+    weightKg: normalizeNumber(form.weightKg),
+    heightCm: normalizeNumber(form.heightCm),
+    bloodGroup: normalizeString(form.bloodGroup),
+    dietPreference: normalizeString(form.dietPreference),
     allergies: allergies.value.length > 0 ? allergies.value : undefined,
-    emergencyContact: form.emergencyContact || undefined,
+    emergencyContact: normalizeString(form.emergencyContact),
   })
 }
 </script>
@@ -77,6 +101,28 @@ function handleSubmit() {
           <option value="">Select</option>
           <option v-for="bg in bloodGroups" :key="bg" :value="bg">{{ bg }}</option>
         </select>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="space-y-2">
+        <Label for="weightKg">Weight (kg)</Label>
+        <Input id="weightKg" v-model="form.weightKg" type="number" min="1" max="500" step="0.1" placeholder="e.g. 72.5" />
+      </div>
+
+      <div class="space-y-2">
+        <Label for="heightCm">Height (cm)</Label>
+        <Input id="heightCm" v-model="form.heightCm" type="number" min="1" max="300" step="0.1" placeholder="e.g. 168" />
+      </div>
+    </div>
+
+    <div class="rounded-lg border bg-muted/30 px-3 py-2.5 text-sm">
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-muted-foreground">BMI</span>
+        <span v-if="bodyMetrics.bmi !== null" class="font-semibold">
+          {{ bodyMetrics.bmi }} <span class="text-muted-foreground">({{ bodyMetrics.bmiCategory }})</span>
+        </span>
+        <span v-else class="text-muted-foreground">Enter weight and height</span>
       </div>
     </div>
 

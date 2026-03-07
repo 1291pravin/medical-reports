@@ -41,6 +41,7 @@ function getInitials(name: string): string {
 
         <div class="mt-0.5 flex items-center gap-2.5 text-[11px] text-muted-foreground">
           <span v-if="member.bloodGroup" class="font-semibold text-red-500 dark:text-red-400">{{ member.bloodGroup }}</span>
+          <span v-if="member.bmi">BMI {{ member.bmi }}</span>
           <span>{{ member.documentCount }} reports</span>
           <span v-if="member.activeMedCount">{{ member.activeMedCount }} meds</span>
         </div>

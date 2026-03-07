@@ -33,6 +33,28 @@ const showRegenerateDialog = ref(false)
 const showDeleteMedDialog = ref(false)
 const deletingMedId = ref<string | null>(null)
 
+// Diet plan state
+const dietPlan = ref<any>(null)
+const dietLoading = ref(false)
+const dietDays = ref<1 | 7 | 30>(7)
+const dietError = ref<string | null>(null)
+
+async function generateDiet() {
+  dietLoading.value = true
+  dietError.value = null
+  dietPlan.value = null
+  try {
+    dietPlan.value = await $fetch(`/api/members/${memberId}/diet`, {
+      method: 'POST',
+      body: { days: dietDays.value },
+    })
+  } catch (err: any) {
+    dietError.value = err?.data?.message || err?.message || 'Failed to generate diet plan'
+  } finally {
+    dietLoading.value = false
+  }
+}
+
 // Deduplicate medications by name (keep most recent)
 const uniqueMeds = computed(() => {
   if (!memberMeds.value) return []
@@ -133,6 +155,14 @@ function metricStatusColor(status: string) {
   return 'text-green-600 dark:text-green-400'
 }
 
+function bmiCategoryColor(category: string | null) {
+  if (category === 'Underweight') return 'text-amber-600 dark:text-amber-400'
+  if (category === 'Normal') return 'text-emerald-600 dark:text-emerald-400'
+  if (category === 'Overweight') return 'text-orange-600 dark:text-orange-400'
+  if (category === 'Obese') return 'text-red-600 dark:text-red-400'
+  return 'text-foreground'
+}
+
 async function handleDelete() {
   await deleteMember(memberId)
   router.push('/members')
@@ -220,7 +250,22 @@ async function regenerateAll() {
     </div>
 
     <!-- Emergency Info Strip -->
-    <div class="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-5">
+    <div class="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-7">
+      <div class="rounded-lg border px-3 py-2.5">
+        <span class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Weight</span>
+        <p class="text-sm font-medium">{{ member.weightKg ? `${member.weightKg} kg` : 'N/A' }}</p>
+      </div>
+      <div class="rounded-lg border px-3 py-2.5">
+        <span class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Height</span>
+        <p class="text-sm font-medium">{{ member.heightCm ? `${member.heightCm} cm` : 'N/A' }}</p>
+      </div>
+      <div class="rounded-lg border px-3 py-2.5">
+        <span class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">BMI</span>
+        <p class="text-sm font-bold" :class="bmiCategoryColor(member.bmiCategory)">
+          {{ member.bmi ? member.bmi : 'N/A' }}
+        </p>
+        <p v-if="member.bmiCategory" class="text-[10px] text-muted-foreground">{{ member.bmiCategory }}</p>
+      </div>
       <div class="rounded-lg border px-3 py-2.5">
         <span class="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Blood</span>
         <p class="text-sm font-bold text-red-500 dark:text-red-400">{{ member.bloodGroup || 'N/A' }}</p>
@@ -252,6 +297,7 @@ async function regenerateAll() {
         <TabsTrigger value="reports">Reports ({{ member.documentCount }})</TabsTrigger>
         <TabsTrigger value="medications">Medications ({{ member.activeMedCount }})</TabsTrigger>
         <TabsTrigger value="conditions">Conditions</TabsTrigger>
+        <TabsTrigger value="diet">Diet Plan</TabsTrigger>
       </TabsList>
 
       <!-- Overview Tab -->

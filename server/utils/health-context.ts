@@ -9,12 +9,23 @@ import {
   memberHealthSummaries,
   timelineEvents,
 } from '~~/server/database/schema'
+import { summarizeBodyMetrics } from '~~/shared/utils/body-metrics'
+
+function toNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null
+  const parsed = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
 
 export interface HealthContext {
   member: {
     name: string
     age: number | null
     dob: string | null
+    weightKg: number | null
+    heightCm: number | null
+    bmi: number | null
+    bmiCategory: string | null
     bloodGroup: string | null
     allergies: string[]
     dietPreference: string | null
@@ -49,6 +60,8 @@ export async function gatherHealthContext(memberId: string): Promise<HealthConte
     .select({
       name: familyMembers.name,
       dob: familyMembers.dob,
+      weightKg: familyMembers.weightKg,
+      heightCm: familyMembers.heightCm,
       bloodGroup: familyMembers.bloodGroup,
       allergies: familyMembers.allergies,
       dietPreference: familyMembers.dietPreference,
@@ -113,11 +126,19 @@ export async function gatherHealthContext(memberId: string): Promise<HealthConte
     .orderBy(desc(memberHealthSummaries.version))
     .limit(1)
 
+  const weightKg = toNumber(member?.weightKg)
+  const heightCm = toNumber(member?.heightCm)
+  const { bmi, bmiCategory } = summarizeBodyMetrics(weightKg, heightCm)
+
   return {
     member: {
       name: member?.name || 'Unknown',
       age: calculateAge(member?.dob || null),
       dob: member?.dob || null,
+      weightKg,
+      heightCm,
+      bmi,
+      bmiCategory,
       bloodGroup: member?.bloodGroup || null,
       allergies: member?.allergies || [],
       dietPreference: member?.dietPreference || null,
@@ -166,6 +187,8 @@ export async function gatherLightHealthContext(memberId: string): Promise<LightH
     .select({
       name: familyMembers.name,
       dob: familyMembers.dob,
+      weightKg: familyMembers.weightKg,
+      heightCm: familyMembers.heightCm,
       bloodGroup: familyMembers.bloodGroup,
       allergies: familyMembers.allergies,
       dietPreference: familyMembers.dietPreference,
@@ -218,11 +241,19 @@ export async function gatherLightHealthContext(memberId: string): Promise<LightH
     }
   }
 
+  const weightKg = toNumber(member?.weightKg)
+  const heightCm = toNumber(member?.heightCm)
+  const { bmi, bmiCategory } = summarizeBodyMetrics(weightKg, heightCm)
+
   return {
     member: {
       name: member?.name || 'Unknown',
       age: calculateAge(member?.dob || null),
       dob: member?.dob || null,
+      weightKg,
+      heightCm,
+      bmi,
+      bmiCategory,
       bloodGroup: member?.bloodGroup || null,
       allergies: member?.allergies || [],
       dietPreference: member?.dietPreference || null,
@@ -230,6 +261,94 @@ export async function gatherLightHealthContext(memberId: string): Promise<LightH
     conditions: memberConditions,
     medications: memberMeds,
     documents: memberDocs,
+    latestSummaryExcerpt: excerpt,
+  }
+}
+
+// Lightweight context for diet plan generation — only diet-relevant data
+export interface DietContext {
+  member: {
+    name: string
+    age: number | null
+    weightKg: number | null
+    heightCm: number | null
+    bmi: number | null
+    bmiCategory: string | null
+    bloodGroup: string | null
+    allergies: string[]
+    dietPreference: string | null
+  }
+  conditions: { name: string; status: string }[]
+  medications: { name: string; dosage: string | null; purpose: string | null }[]
+  latestSummaryExcerpt: string | null
+}
+
+export async function gatherDietContext(memberId: string): Promise<DietContext> {
+  const db = useDb()
+
+  const [member] = await db
+    .select({
+      name: familyMembers.name,
+      dob: familyMembers.dob,
+      weightKg: familyMembers.weightKg,
+      heightCm: familyMembers.heightCm,
+      bloodGroup: familyMembers.bloodGroup,
+      allergies: familyMembers.allergies,
+      dietPreference: familyMembers.dietPreference,
+    })
+    .from(familyMembers)
+    .where(eq(familyMembers.id, memberId))
+    .limit(1)
+
+  const memberConditions = await db
+    .select({ name: conditions.name, status: conditions.status })
+    .from(conditions)
+    .where(eq(conditions.familyMemberId, memberId))
+
+  const memberMeds = await db
+    .select({ name: medications.name, dosage: medications.dosage, purpose: medications.purpose })
+    .from(medications)
+    .where(and(eq(medications.familyMemberId, memberId), eq(medications.isActive, true)))
+
+  const [latestSummary] = await db
+    .select({ summaryText: memberHealthSummaries.summaryText })
+    .from(memberHealthSummaries)
+    .where(eq(memberHealthSummaries.familyMemberId, memberId))
+    .orderBy(desc(memberHealthSummaries.version))
+    .limit(1)
+
+  let excerpt: string | null = null
+  if (latestSummary?.summaryText) {
+    try {
+      const parsed = typeof latestSummary.summaryText === 'string'
+        ? JSON.parse(latestSummary.summaryText)
+        : latestSummary.summaryText
+      excerpt = parsed.executiveSummary || null
+    } catch {
+      excerpt = typeof latestSummary.summaryText === 'string'
+        ? latestSummary.summaryText.slice(0, 300)
+        : null
+    }
+  }
+
+  const weightKg = toNumber(member?.weightKg)
+  const heightCm = toNumber(member?.heightCm)
+  const { bmi, bmiCategory } = summarizeBodyMetrics(weightKg, heightCm)
+
+  return {
+    member: {
+      name: member?.name || 'Unknown',
+      age: calculateAge(member?.dob || null),
+      weightKg,
+      heightCm,
+      bmi,
+      bmiCategory,
+      bloodGroup: member?.bloodGroup || null,
+      allergies: member?.allergies || [],
+      dietPreference: member?.dietPreference || null,
+    },
+    conditions: memberConditions,
+    medications: memberMeds,
     latestSummaryExcerpt: excerpt,
   }
 }

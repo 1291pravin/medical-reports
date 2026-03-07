@@ -15,6 +15,13 @@
       "when": 1772713121421,
       "tag": "0001_silent_blizzard",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772870400000,
+      "tag": "0002_body_metrics",
+      "breakpoints": true
     }
   ]
 }

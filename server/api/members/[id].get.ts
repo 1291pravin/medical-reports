@@ -2,6 +2,7 @@ import { eq, and, sql } from 'drizzle-orm'
 import { useDb } from '~~/server/database'
 import { familyMembers, documents, medications } from '~~/server/database/schema'
 import { requireAuth } from '~~/server/utils/auth'
+import { serializeFamilyMember } from '~~/server/utils/family-member'
 
 export default defineEventHandler(async (event) => {
   const user = await requireAuth(event)
@@ -13,6 +14,8 @@ export default defineEventHandler(async (event) => {
       id: familyMembers.id,
       name: familyMembers.name,
       dob: familyMembers.dob,
+      weightKg: familyMembers.weightKg,
+      heightCm: familyMembers.heightCm,
       bloodGroup: familyMembers.bloodGroup,
       allergies: familyMembers.allergies,
       emergencyContact: familyMembers.emergencyContact,
@@ -33,5 +36,5 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Member not found' })
   }
 
-  return member
+  return serializeFamilyMember(member)
 })

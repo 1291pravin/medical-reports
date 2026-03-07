@@ -106,7 +106,7 @@ export function getHealthSummaryPrompt(): string {
   const today = new Date().toISOString().split('T')[0]
   return `Today's date is ${today}. You are a health analysis agent. Analyze the patient's health data and return structured JSON.
 
-Consider the patient's age, blood group, allergies, diet preference, conditions, medications, and lab values when generating insights.
+Consider the patient's age, weight, height, BMI, blood group, allergies, diet preference, conditions, medications, and lab values when generating insights.
 
 Return JSON with this exact structure:
 {
