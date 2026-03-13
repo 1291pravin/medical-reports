@@ -8,9 +8,10 @@ import { eq, and } from 'drizzle-orm'
 
 const bodySchema = z.object({
   days: z.union([z.literal(1), z.literal(7), z.literal(30)]),
+  instructions: z.string().trim().max(2000).optional(),
 })
 
-function getDietPlanPrompt(days: number): string {
+function getDietPlanPrompt(days: number, instructions?: string): string {
   const today = new Date().toISOString().split('T')[0]
   return `Today's date is ${today}. You are a certified nutritionist AI. Generate a personalized diet plan based on the patient's health profile.
 
@@ -24,7 +25,14 @@ IMPORTANT RULES:
 
 Generate a ${days}-day diet plan.
 
-Return JSON with this exact structure:
+${instructions?.trim()
+    ? `Additional user instructions:
+${instructions.trim()}
+
+Follow these instructions if they do not conflict with the patient's medical needs, allergies, medications, or the required JSON schema.
+
+`
+    : ''}Return JSON with this exact structure:
 {
   "overview": "Brief 2-3 sentence summary of the diet approach and goals",
   "dailyCalorieTarget": "estimated daily calorie range",
@@ -56,7 +64,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown fences, no extra text.`
 export default defineEventHandler(async (event) => {
   const user = await requireAuth(event)
   const id = getRouterParam(event, 'id')!
-  const { days } = await readValidatedBody(event, bodySchema.parse)
+  const { days, instructions } = await readValidatedBody(event, bodySchema.parse)
 
   // Verify member belongs to user
   const db = useDb()
@@ -89,6 +97,6 @@ Active Medications: ${ctx.medications.length ? ctx.medications.map(m => `${m.nam
 
 Health Summary: ${ctx.latestSummaryExcerpt ?? 'No summary available'}`
 
-  const result = await ai.generateJSON(getDietPlanPrompt(days), contextStr)
+  const result = await ai.generateJSON(getDietPlanPrompt(days, instructions), contextStr)
   return result
 })

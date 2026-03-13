@@ -16,6 +16,7 @@ interface BatchFile {
 const step = ref<'upload' | 'processing' | 'done'>('upload')
 const selectedMemberId = ref((route.query.memberId as string) || '')
 const batchFiles = ref<BatchFile[]>([])
+const customInstructions = ref('')
 const error = ref('')
 
 function handleFiles(files: File[]) {
@@ -63,7 +64,9 @@ async function handleUploadAndProcess() {
 
       // Process with AI (extract + save medications/conditions + health summary)
       bf.status = 'processing'
-      await processDocument(doc.id)
+      await processDocument(doc.id, {
+        customInstructions: customInstructions.value.trim() || undefined,
+      })
       bf.status = 'done'
     } catch (e: any) {
       bf.status = 'error'
@@ -109,6 +112,20 @@ function goToMember() {
           </div>
 
           <FileUploader @files="handleFiles" />
+
+          <div class="space-y-2">
+            <Label for="upload-instructions">Additional instructions (optional)</Label>
+            <Textarea
+              id="upload-instructions"
+              v-model="customInstructions"
+              rows="4"
+              maxlength="2000"
+              placeholder="Example: focus on diabetes-related values, capture all medication names exactly, or summarize the report in simpler language."
+            />
+            <p class="text-xs text-muted-foreground">
+              These instructions will be forwarded to the AI while analyzing the uploaded report.
+            </p>
+          </div>
 
           <div v-if="batchFiles.length" class="space-y-2">
             <Label>Selected Files ({{ batchFiles.length }})</Label>

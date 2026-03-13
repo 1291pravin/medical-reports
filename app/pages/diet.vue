@@ -5,6 +5,7 @@ const dietPlan = ref<any>(null)
 const dietLoading = ref(false)
 const dietDays = ref<1 | 7 | 30>(7)
 const dietError = ref<string | null>(null)
+const dietInstructions = ref('')
 const selectedMemberIds = ref<Set<string>>(new Set())
 const pdfLoading = ref(false)
 
@@ -46,6 +47,7 @@ async function generateFamilyDiet() {
       body: {
         days: dietDays.value,
         memberIds: [...selectedMemberIds.value],
+        instructions: dietInstructions.value.trim() || undefined,
       },
     })
   } catch (err: any) {
@@ -266,7 +268,22 @@ async function shareOnWhatsApp() {
     </div>
 
     <!-- Controls -->
-    <div class="mb-6 flex items-center gap-3 flex-wrap">
+    <div class="mb-6 space-y-4">
+      <div class="space-y-2">
+        <Label for="family-diet-instructions">Additional instructions (optional)</Label>
+        <Textarea
+          id="family-diet-instructions"
+          v-model="dietInstructions"
+          rows="4"
+          maxlength="2000"
+          placeholder="Example: keep meals South Indian, avoid expensive ingredients, include kid-friendly options, or prefer quick weekday prep."
+        />
+        <p class="text-xs text-muted-foreground">
+          These instructions are forwarded to the AI when generating the family diet plan.
+        </p>
+      </div>
+
+      <div class="flex items-center gap-3 flex-wrap">
       <div class="flex items-center gap-1.5 rounded-lg border p-1">
         <button
           v-for="opt in [1, 7, 30] as const"
@@ -340,6 +357,7 @@ async function shareOnWhatsApp() {
           WhatsApp
         </Button>
       </template>
+      </div>
     </div>
 
     <!-- No members -->

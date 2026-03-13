@@ -18,6 +18,7 @@ import { gatherHealthContext } from '~~/server/utils/health-context'
 
 const processSchema = z.object({
   documentId: z.string().uuid(),
+  customInstructions: z.string().trim().max(2000).optional(),
 })
 
 export default defineEventHandler(async (event) => {
@@ -50,7 +51,7 @@ export default defineEventHandler(async (event) => {
   const storageKey = extractStorageKey(doc.fileUrl)
   const fileBytes = await getFileObject(storageKey)
 
-  const extraction = await provider.extractDocument(fileBytes, doc.fileType)
+  const extraction = await provider.extractDocument(fileBytes, doc.fileType, body.customInstructions)
 
   // Reject non-medical documents
   if (extraction.isMedicalDocument === false) {

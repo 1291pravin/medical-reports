@@ -38,6 +38,7 @@ const dietPlan = ref<any>(null)
 const dietLoading = ref(false)
 const dietDays = ref<1 | 7 | 30>(7)
 const dietError = ref<string | null>(null)
+const dietInstructions = ref('')
 
 async function generateDiet() {
   dietLoading.value = true
@@ -46,7 +47,10 @@ async function generateDiet() {
   try {
     dietPlan.value = await $fetch(`/api/members/${memberId}/diet`, {
       method: 'POST',
-      body: { days: dietDays.value },
+      body: {
+        days: dietDays.value,
+        instructions: dietInstructions.value.trim() || undefined,
+      },
     })
   } catch (err: any) {
     dietError.value = err?.data?.message || err?.message || 'Failed to generate diet plan'
@@ -641,8 +645,23 @@ async function regenerateAll() {
       <!-- Diet Plan Tab -->
       <TabsContent value="diet" class="mt-4 space-y-4">
         <!-- Controls -->
-        <div class="flex items-center gap-3 flex-wrap">
-          <div class="flex items-center gap-1.5 rounded-lg border p-1">
+        <div class="space-y-4">
+          <div class="space-y-2">
+            <Label for="member-diet-instructions">Additional instructions (optional)</Label>
+            <Textarea
+              id="member-diet-instructions"
+              v-model="dietInstructions"
+              rows="4"
+              maxlength="2000"
+              placeholder="Example: prefer Indian vegetarian meals, include higher-protein breakfast options, or keep prep simple for weekdays."
+            />
+            <p class="text-xs text-muted-foreground">
+              These instructions are forwarded to the AI when generating the diet plan.
+            </p>
+          </div>
+
+          <div class="flex items-center gap-3 flex-wrap">
+            <div class="flex items-center gap-1.5 rounded-lg border p-1">
             <button
               v-for="opt in [1, 7, 30] as const"
               :key="opt"
@@ -652,12 +671,13 @@ async function regenerateAll() {
             >
               {{ opt === 1 ? '1 Day' : opt === 7 ? '7 Days' : '30 Days' }}
             </button>
+            </div>
+            <Button size="sm" :disabled="dietLoading" @click="generateDiet">
+              <svg v-if="dietLoading" xmlns="http://www.w3.org/2000/svg" class="mr-1.5 h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" class="mr-1.5 h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+              {{ dietLoading ? 'Generating...' : 'Generate Diet Plan' }}
+            </Button>
           </div>
-          <Button size="sm" :disabled="dietLoading" @click="generateDiet">
-            <svg v-if="dietLoading" xmlns="http://www.w3.org/2000/svg" class="mr-1.5 h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-            <svg v-else xmlns="http://www.w3.org/2000/svg" class="mr-1.5 h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
-            {{ dietLoading ? 'Generating...' : 'Generate Diet Plan' }}
-          </Button>
         </div>
 
         <!-- Error -->

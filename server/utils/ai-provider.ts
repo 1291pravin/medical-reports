@@ -46,7 +46,11 @@ export interface ChatMessage {
 // ─── Provider interface ─────────────────────────────────────────────
 
 export interface AIProvider {
-  extractDocument(fileBytes: Uint8Array, fileType: string): Promise<DocumentExtraction>
+  extractDocument(
+    fileBytes: Uint8Array,
+    fileType: string,
+    customInstructions?: string,
+  ): Promise<DocumentExtraction>
   generateJSON(systemPrompt: string, userContent: string): Promise<any>
   chat(systemPrompt: string, messages: ChatMessage[]): Promise<string>
 }
@@ -100,6 +104,13 @@ Set "isMedicalDocument" to false if the document is NOT a medical/health-related
 Only include fields where you find relevant information. Be precise with medication dosages and test values. Flag abnormal test values. Always provide a meaningful title and try to extract the report date.
 For timelineEvents: Extract ALL significant medical events with dates from the document - surgeries, diagnoses, hospital admissions/discharges, vaccinations, medication starts/stops, significant lab results, consultations. Each event should be a distinct, dated occurrence.
 IMPORTANT: Return ONLY valid JSON, no markdown fences, no extra text.`
+}
+
+function formatCustomInstructions(customInstructions?: string): string {
+  const instructions = customInstructions?.trim()
+  if (!instructions) return ''
+
+  return `\n\nAdditional user instructions:\n${instructions}\n\nFollow these instructions if they do not conflict with the document content or the required JSON schema.`
 }
 
 export function getHealthSummaryPrompt(): string {
@@ -192,14 +203,18 @@ function runCli(command: string, args: string[], input: string, timeoutMs = 3000
 }
 
 class ClaudeCliProvider implements AIProvider {
-  async extractDocument(fileBytes: Uint8Array, fileType: string): Promise<DocumentExtraction> {
+  async extractDocument(
+    fileBytes: Uint8Array,
+    fileType: string,
+    customInstructions?: string,
+  ): Promise<DocumentExtraction> {
     const tmpDir = await mkdtemp(join(tmpdir(), 'med-'))
     const ext = fileType.includes('pdf') ? 'pdf' : fileType.includes('png') ? 'png' : 'jpg'
     const tmpFile = join(tmpDir, `document.${ext}`)
 
     try {
       await writeFile(tmpFile, fileBytes)
-      const prompt = `${getExtractionPrompt()}\n\nThe medical document file is at: ${tmpFile}\nPlease read and analyze it, then return the JSON extraction.`
+      const prompt = `${getExtractionPrompt()}${formatCustomInstructions(customInstructions)}\n\nThe medical document file is at: ${tmpFile}\nPlease read and analyze it, then return the JSON extraction.`
       const output = await runCli('claude', ['-p', '--output-format', 'text', '--max-turns', '3'], prompt)
       return extractJSON(output)
     } finally {
@@ -225,14 +240,18 @@ class ClaudeCliProvider implements AIProvider {
 }
 
 class CodexCliProvider implements AIProvider {
-  async extractDocument(fileBytes: Uint8Array, fileType: string): Promise<DocumentExtraction> {
+  async extractDocument(
+    fileBytes: Uint8Array,
+    fileType: string,
+    customInstructions?: string,
+  ): Promise<DocumentExtraction> {
     const tmpDir = await mkdtemp(join(tmpdir(), 'med-'))
     const ext = fileType.includes('pdf') ? 'pdf' : fileType.includes('png') ? 'png' : 'jpg'
     const tmpFile = join(tmpDir, `document.${ext}`)
 
     try {
       await writeFile(tmpFile, fileBytes)
-      const prompt = `${getExtractionPrompt()}\n\nThe medical document file is at: ${tmpFile}\nPlease read and analyze it, then return the JSON extraction.`
+      const prompt = `${getExtractionPrompt()}${formatCustomInstructions(customInstructions)}\n\nThe medical document file is at: ${tmpFile}\nPlease read and analyze it, then return the JSON extraction.`
       const output = await runCli('codex', ['exec'], prompt)
       return extractJSON(output)
     } finally {
@@ -272,7 +291,11 @@ class OpenAIProvider implements AIProvider {
     this.model = config.aiSummaryModel || config.aiModel || 'gpt-4o'
   }
 
-  async extractDocument(fileBytes: Uint8Array, fileType: string): Promise<DocumentExtraction> {
+  async extractDocument(
+    fileBytes: Uint8Array,
+    fileType: string,
+    customInstructions?: string,
+  ): Promise<DocumentExtraction> {
     const base64 = Buffer.from(fileBytes).toString('base64')
     const mediaType = fileType.includes('pdf') ? 'application/pdf' : fileType
 
@@ -282,7 +305,7 @@ class OpenAIProvider implements AIProvider {
         {
           role: 'user',
           content: [
-            { type: 'text', text: getExtractionPrompt() },
+            { type: 'text', text: `${getExtractionPrompt()}${formatCustomInstructions(customInstructions)}` },
             {
               type: 'image_url',
               image_url: { url: `data:${mediaType};base64,${base64}` },

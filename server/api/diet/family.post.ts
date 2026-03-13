@@ -9,9 +9,10 @@ import { familyMembers } from '~~/server/database/schema'
 const bodySchema = z.object({
   days: z.union([z.literal(1), z.literal(7), z.literal(30)]),
   memberIds: z.array(z.string().uuid()).optional(),
+  instructions: z.string().trim().max(2000).optional(),
 })
 
-function getFamilyDietPrompt(days: number): string {
+function getFamilyDietPrompt(days: number, instructions?: string): string {
   const today = new Date().toISOString().split('T')[0]
   return `Today's date is ${today}. You are a certified family nutritionist AI. Generate a unified family diet plan that accommodates ALL family members' health needs.
 
@@ -25,7 +26,14 @@ IMPORTANT RULES:
 
 Generate a ${days}-day family diet plan.
 
-Return JSON with this exact structure:
+${instructions?.trim()
+    ? `Additional user instructions:
+${instructions.trim()}
+
+Follow these instructions if they do not conflict with any family member's medical needs, allergies, medications, or the required JSON schema.
+
+`
+    : ''}Return JSON with this exact structure:
 {
   "overview": "Brief summary of the family diet approach",
   "familyConstraints": {
@@ -79,7 +87,7 @@ function formatMemberContext(ctx: DietContext): string {
 
 export default defineEventHandler(async (event) => {
   const user = await requireAuth(event)
-  const { days, memberIds } = await readValidatedBody(event, bodySchema.parse)
+  const { days, memberIds, instructions } = await readValidatedBody(event, bodySchema.parse)
 
   const db = useDb()
   let allMembers = await db
@@ -105,6 +113,6 @@ export default defineEventHandler(async (event) => {
   const contextStr = `Family Members (${contexts.length}):\n${contexts.map(formatMemberContext).join('\n')}`
 
   const ai = useAIProvider()
-  const result = await ai.generateJSON(getFamilyDietPrompt(days), contextStr)
+  const result = await ai.generateJSON(getFamilyDietPrompt(days, instructions), contextStr)
   return result
 })

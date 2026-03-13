@@ -76,12 +76,15 @@ export function useDocuments() {
     })
   }
 
-  async function processDocument(documentId: string) {
+  async function processDocument(documentId: string, data?: { customInstructions?: string }) {
     return $fetch<{ extraction: AIExtraction }>(
       '/api/ai/process',
       {
         method: 'POST',
-        body: { documentId },
+        body: {
+          documentId,
+          ...(data?.customInstructions ? { customInstructions: data.customInstructions } : {}),
+        },
       },
     )
   }
