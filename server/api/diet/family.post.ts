@@ -5,6 +5,7 @@ import { gatherDietContext, type DietContext } from '~~/server/utils/health-cont
 import { useAIProvider } from '~~/server/utils/ai-provider'
 import { useDb } from '~~/server/database'
 import { familyMembers } from '~~/server/database/schema'
+import { familyDietPlanSchema } from '~~/server/utils/family-diet'
 
 const bodySchema = z.object({
   days: z.union([z.literal(1), z.literal(7), z.literal(30)]),
@@ -114,5 +115,5 @@ export default defineEventHandler(async (event) => {
 
   const ai = useAIProvider()
   const result = await ai.generateJSON(getFamilyDietPrompt(days, instructions), contextStr)
-  return result
+  return familyDietPlanSchema.parse(result)
 })

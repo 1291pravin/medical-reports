@@ -1,52 +1,75 @@
 <script setup lang="ts">
+import type { FamilyDietPlan, FamilyGroceryList } from '~~/shared/types/diet'
+
 const { members } = await useMembers()
 
-const dietPlan = ref<any>(null)
+const dietPlan = ref<FamilyDietPlan | null>(null)
+const groceryList = ref<FamilyGroceryList | null>(null)
+const exportedPdf = ref<{ fileUrl: string; fileName: string } | null>(null)
 const dietLoading = ref(false)
+const groceryLoading = ref(false)
+const pdfLoading = ref(false)
 const dietDays = ref<1 | 7 | 30>(7)
 const dietError = ref<string | null>(null)
+const actionError = ref<string | null>(null)
 const dietInstructions = ref('')
 const selectedMemberIds = ref<Set<string>>(new Set())
-const pdfLoading = ref(false)
 
-// Select all members by default
 watch(
   () => members.value,
-  (val) => {
-    if (val.length && !selectedMemberIds.value.size) {
-      selectedMemberIds.value = new Set(val.map((m) => m.id))
+  (value) => {
+    if (value.length && !selectedMemberIds.value.size) {
+      selectedMemberIds.value = new Set(value.map(member => member.id))
     }
   },
   { immediate: true },
 )
 
 function toggleMember(id: string) {
-  const s = new Set(selectedMemberIds.value)
-  if (s.has(id)) s.delete(id)
-  else s.add(id)
-  selectedMemberIds.value = s
+  const next = new Set(selectedMemberIds.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selectedMemberIds.value = next
 }
 
 function toggleAll() {
   if (selectedMemberIds.value.size === members.value.length) {
     selectedMemberIds.value = new Set()
-  } else {
-    selectedMemberIds.value = new Set(members.value.map((m) => m.id))
+    return
   }
+
+  selectedMemberIds.value = new Set(members.value.map(member => member.id))
 }
 
-const selectedMembers = computed(() => members.value.filter((m) => selectedMemberIds.value.has(m.id)))
+const selectedMembers = computed(() => members.value.filter(member => selectedMemberIds.value.has(member.id)))
+const selectedMemberIdsList = computed(() => [...selectedMemberIds.value])
+const selectedMemberNames = computed(() => selectedMembers.value.map(member => member.name))
+const planLengthLabel = computed(() => (dietDays.value === 1 ? '1 day' : `${dietDays.value} days`))
+const selectedMemberLabel = computed(() => {
+  if (!selectedMemberNames.value.length) return 'No members selected'
+  if (selectedMemberNames.value.length <= 3) return selectedMemberNames.value.join(', ')
+  return `${selectedMemberNames.value.slice(0, 3).join(', ')} +${selectedMemberNames.value.length - 3} more`
+})
+
+function resetDerivedOutputs() {
+  groceryList.value = null
+  exportedPdf.value = null
+  actionError.value = null
+}
 
 async function generateFamilyDiet() {
   dietLoading.value = true
   dietError.value = null
+  actionError.value = null
   dietPlan.value = null
+  resetDerivedOutputs()
+
   try {
-    dietPlan.value = await $fetch('/api/diet/family', {
+    dietPlan.value = await $fetch<FamilyDietPlan>('/api/diet/family', {
       method: 'POST',
       body: {
         days: dietDays.value,
-        memberIds: [...selectedMemberIds.value],
+        memberIds: selectedMemberIdsList.value,
         instructions: dietInstructions.value.trim() || undefined,
       },
     })
@@ -57,155 +80,125 @@ async function generateFamilyDiet() {
   }
 }
 
-async function generatePdf(): Promise<Blob | null> {
+async function generateGroceryList() {
+  if (!dietPlan.value) return
+
+  groceryLoading.value = true
+  actionError.value = null
+  try {
+    groceryList.value = await $fetch<FamilyGroceryList>('/api/diet/family/grocery', {
+      method: 'POST',
+      body: {
+        days: dietDays.value,
+        memberIds: selectedMemberIdsList.value,
+        plan: dietPlan.value,
+      },
+    })
+    exportedPdf.value = null
+  } catch (err: any) {
+    actionError.value = err?.data?.message || err?.message || 'Failed to generate grocery list'
+  } finally {
+    groceryLoading.value = false
+  }
+}
+
+async function ensurePdf() {
   if (!dietPlan.value) return null
 
+  if (exportedPdf.value) {
+    return {
+      ...exportedPdf.value,
+      groceryList: groceryList.value,
+    }
+  }
+
   pdfLoading.value = true
+  actionError.value = null
   try {
-    const { jsPDF } = await import('jspdf')
-    const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
-    const plan = dietPlan.value
-    const names = selectedMembers.value.map((m) => m.name).join(', ')
-    const pageW = doc.internal.pageSize.getWidth()
-    const margin = 15
-    const maxW = pageW - margin * 2
-    let y = margin
+    const response = await $fetch<{
+      fileName: string
+      fileUrl: string
+      groceryList: FamilyGroceryList
+    }>('/api/diet/family/pdf', {
+      method: 'POST',
+      body: {
+        days: dietDays.value,
+        memberIds: selectedMemberIdsList.value,
+        plan: dietPlan.value,
+        groceryList: groceryList.value || undefined,
+      },
+    })
 
-    function checkPage(needed: number) {
-      if (y + needed > doc.internal.pageSize.getHeight() - margin) {
-        doc.addPage()
-        y = margin
-      }
+    groceryList.value = response.groceryList
+    exportedPdf.value = {
+      fileName: response.fileName,
+      fileUrl: response.fileUrl,
     }
 
-    function addText(text: string, opts: { size?: number; bold?: boolean; color?: [number, number, number]; indent?: number } = {}) {
-      const { size = 10, bold = false, color = [26, 26, 26], indent = 0 } = opts
-      doc.setFontSize(size)
-      doc.setFont('helvetica', bold ? 'bold' : 'normal')
-      doc.setTextColor(...color)
-      const lines = doc.splitTextToSize(text, maxW - indent)
-      const lineH = size * 0.45
-      checkPage(lines.length * lineH)
-      doc.text(lines, margin + indent, y)
-      y += lines.length * lineH + 1
-    }
-
-    // Title
-    addText(`Family Diet Plan - ${dietDays.value} ${dietDays.value === 1 ? 'Day' : 'Days'}`, { size: 16, bold: true })
-    addText(`For: ${names} | Generated: ${new Date().toLocaleDateString()}`, { size: 9, color: [120, 120, 120] })
-    y += 3
-
-    // Overview
-    if (plan.overview) {
-      addText('Overview', { size: 12, bold: true })
-      addText(plan.overview, { size: 9, color: [80, 80, 80] })
-    }
-    if (plan.familyConstraints?.commonDietBase) {
-      addText(`Diet Base: ${plan.familyConstraints.commonDietBase}`, { size: 9, indent: 2 })
-    }
-    if (plan.familyConstraints?.combinedAllergies?.length) {
-      addText(`Allergens: ${plan.familyConstraints.combinedAllergies.join(', ')}`, { size: 9, color: [180, 40, 40], indent: 2 })
-    }
-    y += 2
-
-    // Per-member notes
-    if (plan.perMemberNotes?.length) {
-      addText('Per-Member Guidelines', { size: 12, bold: true })
-      for (const note of plan.perMemberNotes) {
-        let line = note.member
-        if (note.dailyCalories) line += ` — ${note.dailyCalories} cal`
-        if (note.keyFocus) line += ` — ${note.keyFocus}`
-        addText(line, { size: 9, indent: 3 })
-      }
-      y += 2
-    }
-
-    // Days
-    if (plan.days?.length) {
-      for (const day of plan.days) {
-        addText(`Day ${day.day}`, { size: 12, bold: true })
-        if (day.meals) {
-          for (const [mealKey, meal] of Object.entries(day.meals) as [string, any][]) {
-            if (!meal) continue
-            const label = mealKey.replace(/([A-Z])/g, ' $1').trim()
-            addText(`${label}${meal.time ? ' (' + meal.time + ')' : ''}`, { size: 10, bold: true, indent: 2 })
-            if (meal.sharedItems?.length) {
-              for (const item of meal.sharedItems) {
-                addText(`• ${item}`, { size: 9, color: [60, 60, 60], indent: 6 })
-              }
-            }
-            if (meal.memberModifications?.length) {
-              for (const mod of meal.memberModifications) {
-                addText(`[${mod.member}] ${mod.modification}`, { size: 8, color: [100, 100, 100], indent: 6 })
-              }
-            }
-            if (meal.notes) {
-              addText(meal.notes, { size: 8, color: [140, 140, 140], indent: 6 })
-            }
-          }
-        }
-        y += 2
-      }
-    }
-
-    // Shopping tips
-    if (plan.shoppingTips?.length) {
-      addText('Shopping & Prep Tips', { size: 12, bold: true })
-      for (const tip of plan.shoppingTips) {
-        addText(`• ${tip}`, { size: 9, color: [60, 60, 60], indent: 3 })
-      }
-    }
-
-    return doc.output('blob') as Blob
+    return response
+  } catch (err: any) {
+    actionError.value = err?.data?.message || err?.message || 'Failed to prepare PDF'
+    return null
   } finally {
     pdfLoading.value = false
   }
 }
 
-async function downloadPdf() {
-  const blob = await generatePdf()
-  if (!blob) return
+async function fetchPdfBlob(fileUrl: string) {
+  const response = await fetch(fileUrl)
+  if (!response.ok) {
+    throw new Error('Unable to fetch the exported PDF')
+  }
+  return response.blob()
+}
 
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `diet-plan-${dietDays.value}days.pdf`
-  a.click()
-  URL.revokeObjectURL(url)
+async function downloadPdf() {
+  const pdf = await ensurePdf()
+  if (!pdf) return
+
+  try {
+    const blob = await fetchPdfBlob(pdf.fileUrl)
+    const objectUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = objectUrl
+    link.download = pdf.fileName
+    link.click()
+    URL.revokeObjectURL(objectUrl)
+  } catch (err: any) {
+    actionError.value = err?.message || 'Failed to download PDF'
+  }
 }
 
 async function shareOnWhatsApp() {
-  const blob = await generatePdf()
-  if (!blob) return
+  const pdf = await ensurePdf()
+  if (!pdf) return
 
-  const file = new File([blob], `diet-plan-${dietDays.value}days.pdf`, { type: 'application/pdf' })
+  try {
+    const blob = await fetchPdfBlob(pdf.fileUrl)
+    const file = new File([blob], pdf.fileName, { type: 'application/pdf' })
 
-  // Try native share with file (works on mobile)
-  if (navigator.share && navigator.canShare?.({ files: [file] })) {
-    try {
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
       await navigator.share({
-        title: `Family Diet Plan - ${dietDays.value} Days`,
+        title: `Family Diet Plan - ${planLengthLabel.value}`,
         files: [file],
       })
       return
-    } catch {
-      // User cancelled or failed — fall through to text share
     }
+
+    const objectUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = objectUrl
+    link.download = pdf.fileName
+    link.click()
+    URL.revokeObjectURL(objectUrl)
+
+    const text = encodeURIComponent(
+      `Family diet PDF for ${selectedMemberNames.value.join(', ')} has been downloaded. Attach the PDF in this WhatsApp chat.`,
+    )
+    window.open(`https://wa.me/?text=${text}`, '_blank')
+  } catch (err: any) {
+    actionError.value = err?.message || 'Failed to share PDF'
   }
-
-  // Fallback: download PDF + open WhatsApp with text message
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = file.name
-  a.click()
-  URL.revokeObjectURL(url)
-
-  const names = selectedMembers.value.map((m) => m.name).join(', ')
-  const text = encodeURIComponent(
-    `Family Diet Plan (${dietDays.value} days) for: ${names}\nPDF downloaded - please attach it to this chat.`,
-  )
-  window.open(`https://wa.me/?text=${text}`, '_blank')
 }
 </script>
 
@@ -214,13 +207,12 @@ async function shareOnWhatsApp() {
     <div class="mb-6">
       <h1 class="text-xl font-bold tracking-tight">Family Diet Plan</h1>
       <p class="mt-1 text-sm text-muted-foreground">
-        AI-generated diet plan that accommodates all family members' health needs, conditions, and preferences.
+        Generate one family-safe diet plan, turn it into a grocery list, and export a clearer PDF from the server.
       </p>
     </div>
 
-    <!-- Members selection strip -->
     <div v-if="members.length" class="mb-6">
-      <div class="flex items-center justify-between mb-2">
+      <div class="mb-2 flex items-center justify-between">
         <span class="text-sm font-medium">Select Members</span>
         <button class="text-xs text-primary hover:underline" @click="toggleAll">
           {{ selectedMemberIds.size === members.length ? 'Deselect All' : 'Select All' }}
@@ -228,26 +220,22 @@ async function shareOnWhatsApp() {
       </div>
       <div class="flex flex-wrap gap-2">
         <button
-          v-for="m in members"
-          :key="m.id"
+          v-for="member in members"
+          :key="member.id"
           class="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs transition-colors"
-          :class="
-            selectedMemberIds.has(m.id)
-              ? 'border-primary bg-primary/10 text-foreground'
-              : 'border-dashed border-muted-foreground/30 text-muted-foreground opacity-60'
-          "
-          @click="toggleMember(m.id)"
+          :class="selectedMemberIds.has(member.id)
+            ? 'border-primary bg-primary/10 text-foreground'
+            : 'border-dashed border-muted-foreground/30 text-muted-foreground opacity-60'"
+          @click="toggleMember(member.id)"
         >
           <span
             class="flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors"
-            :class="
-              selectedMemberIds.has(m.id)
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-muted-foreground/40'
-            "
+            :class="selectedMemberIds.has(member.id)
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-muted-foreground/40'"
           >
             <svg
-              v-if="selectedMemberIds.has(m.id)"
+              v-if="selectedMemberIds.has(member.id)"
               xmlns="http://www.w3.org/2000/svg"
               class="h-3 w-3"
               viewBox="0 0 24 24"
@@ -260,107 +248,108 @@ async function shareOnWhatsApp() {
               <path d="m5 12 5 5L20 7" />
             </svg>
           </span>
-          <span class="font-medium">{{ m.name }}</span>
-          <span v-if="m.dietPreference" class="text-muted-foreground capitalize">{{ m.dietPreference }}</span>
-          <span v-if="m.allergies?.length" class="text-red-500">{{ m.allergies.join(', ') }}</span>
+          <span class="font-medium">{{ member.name }}</span>
+          <span v-if="member.dietPreference" class="text-muted-foreground capitalize">{{ member.dietPreference }}</span>
+          <span v-if="member.allergies?.length" class="text-red-500">{{ member.allergies.join(', ') }}</span>
         </button>
       </div>
     </div>
 
-    <!-- Controls -->
     <div class="mb-6 space-y-4">
-      <div class="space-y-2">
-        <Label for="family-diet-instructions">Additional instructions (optional)</Label>
-        <Textarea
-          id="family-diet-instructions"
-          v-model="dietInstructions"
-          rows="4"
-          maxlength="2000"
-          placeholder="Example: keep meals South Indian, avoid expensive ingredients, include kid-friendly options, or prefer quick weekday prep."
-        />
-        <p class="text-xs text-muted-foreground">
-          These instructions are forwarded to the AI when generating the family diet plan.
-        </p>
-      </div>
+      <Card class="border-primary/15 bg-gradient-to-br from-primary/5 via-background to-emerald-50/80">
+        <CardContent class="space-y-4 p-5">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-primary/80">Plan Setup</p>
+              <h2 class="mt-1 text-lg font-semibold">Family meal plan + grocery export</h2>
+              <p class="mt-1 text-sm text-muted-foreground">Current selection: {{ selectedMemberLabel }}</p>
+            </div>
 
-      <div class="flex items-center gap-3 flex-wrap">
-      <div class="flex items-center gap-1.5 rounded-lg border p-1">
-        <button
-          v-for="opt in [1, 7, 30] as const"
-          :key="opt"
-          class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
-          :class="
-            dietDays === opt ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-          "
-          @click="dietDays = opt"
-        >
-          {{ opt === 1 ? '1 Day' : opt === 7 ? '7 Days' : '30 Days' }}
-        </button>
-      </div>
-      <Button :disabled="dietLoading || !selectedMemberIds.size" @click="generateFamilyDiet">
-        <svg
-          v-if="dietLoading"
-          xmlns="http://www.w3.org/2000/svg"
-          class="mr-1.5 h-4 w-4 animate-spin"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-        </svg>
-        <svg
-          v-else
-          xmlns="http://www.w3.org/2000/svg"
-          class="mr-1.5 h-4 w-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M12 20V10" />
-          <path d="M18 20V4" />
-          <path d="M6 20v-4" />
-        </svg>
-        {{ dietLoading ? 'Generating...' : 'Generate Diet Plan' }}
-      </Button>
+            <div class="flex items-center gap-1.5 rounded-lg border bg-background/80 p-1">
+              <button
+                v-for="opt in [1, 7, 30] as const"
+                :key="opt"
+                class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+                :class="dietDays === opt ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+                @click="dietDays = opt"
+              >
+                {{ opt === 1 ? '1 Day' : opt === 7 ? '7 Days' : '30 Days' }}
+              </button>
+            </div>
+          </div>
 
-      <!-- PDF & WhatsApp buttons (shown only when plan exists) -->
-      <template v-if="dietPlan && !dietLoading">
-        <Button variant="outline" :disabled="pdfLoading" @click="downloadPdf">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="mr-1.5 h-4 w-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" x2="12" y1="15" y2="3" />
-          </svg>
-          {{ pdfLoading ? 'Creating...' : 'Download PDF' }}
-        </Button>
-        <Button variant="outline" class="text-green-600 border-green-200 hover:bg-green-50" :disabled="pdfLoading" @click="shareOnWhatsApp">
-          <svg xmlns="http://www.w3.org/2000/svg" class="mr-1.5 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"
+          <div class="space-y-2">
+            <Label for="family-diet-instructions">Additional instructions (optional)</Label>
+            <Textarea
+              id="family-diet-instructions"
+              v-model="dietInstructions"
+              rows="4"
+              maxlength="2000"
+              placeholder="Example: keep meals South Indian, avoid expensive ingredients, include kid-friendly options, or prefer quick weekday prep."
             />
-          </svg>
-          WhatsApp
-        </Button>
-      </template>
-      </div>
+            <p class="text-xs text-muted-foreground">
+              These instructions are forwarded to the AI when generating the family diet plan.
+            </p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <Button :disabled="dietLoading || !selectedMemberIds.size" @click="generateFamilyDiet">
+              {{ dietLoading ? 'Generating...' : 'Generate Diet Plan' }}
+            </Button>
+            <p class="text-xs text-muted-foreground">
+              The PDF export is rendered on the server and saved to the configured uploads storage.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card v-if="dietPlan && !dietLoading" class="border-emerald-200/70 bg-white">
+        <CardContent class="space-y-4 p-5">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-700">Actions</p>
+              <h2 class="mt-1 text-lg font-semibold">Plan is ready</h2>
+              <p class="mt-1 text-sm text-muted-foreground">
+                {{ planLengthLabel }} plan for {{ selectedMemberNames.length }} member{{ selectedMemberNames.length === 1 ? '' : 's' }}.
+                The PDF will include the grocery list automatically.
+              </p>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+              <Button variant="outline" :disabled="groceryLoading || pdfLoading" @click="generateGroceryList">
+                {{ groceryLoading ? 'Generating...' : groceryList ? 'Refresh Grocery List' : 'Generate Grocery List' }}
+              </Button>
+              <Button variant="outline" :disabled="pdfLoading || groceryLoading" @click="downloadPdf">
+                {{ pdfLoading ? 'Preparing PDF...' : 'Download PDF' }}
+              </Button>
+              <Button
+                variant="outline"
+                class="border-green-200 text-green-700 hover:bg-green-50"
+                :disabled="pdfLoading || groceryLoading"
+                @click="shareOnWhatsApp"
+              >
+                WhatsApp
+              </Button>
+            </div>
+          </div>
+
+          <div v-if="exportedPdf" class="rounded-lg border border-dashed border-emerald-200 bg-emerald-50/70 px-3 py-2 text-sm">
+            <span class="font-medium text-emerald-900">Latest PDF:</span>
+            <a :href="exportedPdf.fileUrl" target="_blank" class="ml-2 text-emerald-700 underline">
+              {{ exportedPdf.fileName }}
+            </a>
+          </div>
+
+          <div
+            v-if="actionError"
+            class="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive"
+          >
+            {{ actionError }}
+          </div>
+        </CardContent>
+      </Card>
     </div>
 
-    <!-- No members -->
     <Card v-if="!members.length">
       <CardContent class="py-8 text-center">
         <p class="text-sm text-muted-foreground">Add family members first to generate a family diet plan.</p>
@@ -370,189 +359,272 @@ async function shareOnWhatsApp() {
       </CardContent>
     </Card>
 
-    <!-- No selection -->
     <Card v-else-if="!selectedMemberIds.size && !dietPlan && !dietLoading">
       <CardContent class="py-8 text-center">
         <p class="text-sm text-muted-foreground">Select at least one family member to generate a diet plan.</p>
       </CardContent>
     </Card>
 
-    <!-- Error -->
-    <div
-      v-if="dietError"
-      class="mb-4 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive"
-    >
+    <div v-if="dietError" class="mb-4 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
       {{ dietError }}
     </div>
 
-    <!-- Loading -->
     <div v-if="dietLoading" class="space-y-3">
       <div v-for="i in 4" :key="i" class="h-24 animate-pulse rounded-lg bg-muted" />
     </div>
 
-    <!-- Results (visible on screen) -->
-    <div v-if="dietPlan && !dietLoading" class="space-y-4">
-      <!-- Overview -->
-      <Card>
-        <CardHeader>
-          <CardTitle class="text-base flex items-center gap-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-4 w-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-            Family Diet Overview
-          </CardTitle>
-        </CardHeader>
-        <CardContent class="space-y-3">
-          <p class="text-sm">{{ dietPlan.overview }}</p>
-
-          <div v-if="dietPlan.familyConstraints" class="space-y-2">
-            <div v-if="dietPlan.familyConstraints.commonDietBase" class="text-sm">
-              <span class="font-medium">Common Diet Base:</span>
-              <span class="ml-1 capitalize">{{ dietPlan.familyConstraints.commonDietBase }}</span>
-            </div>
-            <div v-if="dietPlan.familyConstraints.combinedAllergies?.length">
-              <span class="text-sm font-medium">Allergens to Avoid:</span>
-              <div class="mt-1 flex flex-wrap gap-1.5">
-                <Badge
-                  v-for="(a, i) in dietPlan.familyConstraints.combinedAllergies"
-                  :key="i"
-                  variant="destructive"
-                  class="text-xs"
-                >
-                  {{ a }}
-                </Badge>
-              </div>
-            </div>
-            <div v-if="dietPlan.familyConstraints.specialConsiderations?.length">
-              <span class="text-sm font-medium">Special Considerations:</span>
-              <ul class="mt-1 space-y-1">
-                <li
-                  v-for="(c, i) in dietPlan.familyConstraints.specialConsiderations"
-                  :key="i"
-                  class="text-sm text-muted-foreground flex items-start gap-2"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="mt-0.5 h-3 w-3 shrink-0 text-amber-500"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M12 16v-4" />
-                    <path d="M12 8h.01" />
-                  </svg>
-                  {{ c }}
-                </li>
-              </ul>
-            </div>
+    <div v-if="dietPlan && !dietLoading" class="space-y-6">
+      <section class="space-y-4">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-primary/80">Diet</p>
+            <h2 class="text-lg font-semibold">Family diet overview</h2>
           </div>
-        </CardContent>
-      </Card>
+          <Badge variant="secondary" class="bg-primary/10 text-primary">{{ planLengthLabel }}</Badge>
+        </div>
 
-      <!-- Per Member Notes -->
-      <Card v-if="dietPlan.perMemberNotes?.length">
-        <CardHeader>
-          <CardTitle class="text-base">Per-Member Guidelines</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div class="grid gap-3 sm:grid-cols-2">
-            <div v-for="(note, i) in dietPlan.perMemberNotes" :key="i" class="rounded-lg border p-3">
-              <h4 class="text-sm font-medium">{{ note.member }}</h4>
-              <p v-if="note.dailyCalories" class="text-xs text-muted-foreground">
-                Calories: {{ note.dailyCalories }}
-              </p>
-              <p v-if="note.keyFocus" class="text-xs text-muted-foreground mt-0.5">{{ note.keyFocus }}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        <div class="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
+          <Card>
+            <CardHeader>
+              <CardTitle class="text-base">Family Diet Overview</CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-3">
+              <p class="text-sm leading-6">{{ dietPlan.overview }}</p>
 
-      <!-- Daily Plans -->
-      <div v-for="day in dietPlan.days" :key="day.day" class="space-y-2">
-        <h3 class="text-sm font-semibold text-muted-foreground">Day {{ day.day }}</h3>
-        <Card>
-          <CardContent class="p-4 space-y-4">
-            <div
-              v-for="(meal, mealKey) in day.meals"
-              :key="mealKey"
-              class="border-b last:border-0 pb-3 last:pb-0"
-            >
-              <div class="flex items-center gap-2 mb-1">
-                <span class="text-sm font-medium capitalize">{{
-                  String(mealKey).replace(/([A-Z])/g, ' $1').trim()
-                }}</span>
-                <span v-if="meal?.time" class="text-xs text-muted-foreground">{{ meal.time }}</span>
-              </div>
-              <ul v-if="meal?.sharedItems?.length" class="ml-4 space-y-0.5">
-                <li
-                  v-for="(item, j) in meal.sharedItems"
-                  :key="j"
-                  class="text-sm text-muted-foreground list-disc"
-                >
-                  {{ item }}
-                </li>
-              </ul>
-              <div v-if="meal?.memberModifications?.length" class="mt-1.5 ml-4 space-y-0.5">
-                <div v-for="(mod, j) in meal.memberModifications" :key="j" class="flex items-start gap-1.5 text-xs">
-                  <Badge variant="outline" class="text-[10px] shrink-0">{{ mod.member }}</Badge>
-                  <span class="text-muted-foreground">{{ mod.modification }}</span>
+              <div v-if="dietPlan.familyConstraints" class="grid gap-3 md:grid-cols-2">
+                <div class="rounded-lg border bg-muted/30 p-3">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Shared base</p>
+                  <p class="mt-1 text-sm font-medium capitalize">
+                    {{ dietPlan.familyConstraints.commonDietBase || 'No shared base specified' }}
+                  </p>
+                </div>
+                <div class="rounded-lg border bg-muted/30 p-3">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Allergens to avoid</p>
+                  <div class="mt-2 flex flex-wrap gap-1.5">
+                    <Badge
+                      v-for="(allergy, index) in dietPlan.familyConstraints.combinedAllergies || []"
+                      :key="index"
+                      variant="destructive"
+                      class="text-xs"
+                    >
+                      {{ allergy }}
+                    </Badge>
+                    <span v-if="!dietPlan.familyConstraints.combinedAllergies?.length" class="text-sm text-muted-foreground">
+                      None listed
+                    </span>
+                  </div>
                 </div>
               </div>
-              <p v-if="meal?.notes" class="mt-1 ml-4 text-xs text-muted-foreground/70 italic">{{ meal.notes }}</p>
-            </div>
+
+              <div v-if="dietPlan.familyConstraints?.specialConsiderations?.length" class="space-y-2">
+                <p class="text-sm font-medium">Special considerations</p>
+                <ul class="space-y-1.5">
+                  <li
+                    v-for="(consideration, index) in dietPlan.familyConstraints.specialConsiderations"
+                    :key="index"
+                    class="flex items-start gap-2 text-sm text-muted-foreground"
+                  >
+                    <span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                    <span>{{ consideration }}</span>
+                  </li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card v-if="dietPlan.perMemberNotes?.length">
+            <CardHeader>
+              <CardTitle class="text-base">Per-Member Guidelines</CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-3">
+              <div v-for="(note, index) in dietPlan.perMemberNotes" :key="index" class="rounded-lg border bg-muted/20 p-3">
+                <p class="text-sm font-medium">{{ note.member }}</p>
+                <p v-if="note.dailyCalories" class="mt-1 text-xs text-muted-foreground">Calories: {{ note.dailyCalories }}</p>
+                <p v-if="note.keyFocus" class="mt-1 text-xs text-muted-foreground">{{ note.keyFocus }}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      <section class="space-y-4">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-700">Groceries</p>
+            <h2 class="text-lg font-semibold">Grocery list</h2>
+          </div>
+          <Button variant="outline" size="sm" :disabled="groceryLoading || pdfLoading" @click="generateGroceryList">
+            {{ groceryLoading ? 'Generating...' : groceryList ? 'Refresh Grocery List' : 'Generate Grocery List' }}
+          </Button>
+        </div>
+
+        <Card v-if="groceryLoading">
+          <CardContent class="space-y-3 p-5">
+            <div v-for="i in 3" :key="i" class="h-16 animate-pulse rounded-lg bg-muted" />
           </CardContent>
         </Card>
-      </div>
 
-      <!-- Shopping Tips -->
-      <Card v-if="dietPlan.shoppingTips?.length">
-        <CardHeader>
-          <CardTitle class="text-base">Shopping & Prep Tips</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul class="space-y-1.5">
-            <li
-              v-for="(tip, i) in dietPlan.shoppingTips"
-              :key="i"
-              class="flex items-start gap-2 text-sm text-muted-foreground"
+        <Card v-else-if="!groceryList" class="border-dashed border-emerald-200 bg-emerald-50/40">
+          <CardContent class="py-8 text-center">
+            <p class="text-sm text-muted-foreground">
+              Generate a consolidated grocery list from this diet plan. PDF export will also create it automatically if needed.
+            </p>
+          </CardContent>
+        </Card>
+
+        <template v-else>
+          <div class="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+            <Card>
+              <CardHeader>
+                <CardTitle class="text-base">Shopping Summary</CardTitle>
+              </CardHeader>
+              <CardContent class="space-y-3">
+                <p v-if="groceryList.summary" class="text-sm leading-6">{{ groceryList.summary }}</p>
+                <p v-else class="text-sm text-muted-foreground">Grouped grocery list generated from the current family diet plan.</p>
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <div class="rounded-lg border bg-muted/20 p-3">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sections</p>
+                    <p class="mt-1 text-lg font-semibold">{{ groceryList.sections.length }}</p>
+                  </div>
+                  <div class="rounded-lg border bg-muted/20 p-3">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Members</p>
+                    <p class="mt-1 text-lg font-semibold">{{ selectedMemberNames.length }}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card v-if="dietPlan.shoppingTips?.length || groceryList.notes?.length">
+              <CardHeader>
+                <CardTitle class="text-base">Shopping Notes</CardTitle>
+              </CardHeader>
+              <CardContent class="space-y-2">
+                <div
+                  v-for="(tip, index) in [...(dietPlan.shoppingTips || []), ...(groceryList.notes || [])]"
+                  :key="index"
+                  class="flex items-start gap-2 text-sm text-muted-foreground"
+                >
+                  <span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-green-500" />
+                  <span>{{ tip }}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <Card
+              v-for="(section, index) in groceryList.sections"
+              :key="`${section.title}-${index}`"
+              class="border-emerald-200/70"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="mt-0.5 h-3 w-3 shrink-0 text-green-500"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="m9 12 2 2 4-4" />
-                <circle cx="12" cy="12" r="10" />
-              </svg>
-              {{ tip }}
-            </li>
-          </ul>
-        </CardContent>
-      </Card>
+              <CardHeader class="pb-3">
+                <CardTitle class="text-base text-emerald-800">{{ section.title }}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul class="space-y-2">
+                  <li
+                    v-for="(item, itemIndex) in section.items"
+                    :key="itemIndex"
+                    class="flex items-start gap-2 text-sm text-muted-foreground"
+                  >
+                    <span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                    <span>{{ item }}</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div class="grid gap-4 lg:grid-cols-2">
+            <Card v-if="groceryList.pantryStaples?.length">
+              <CardHeader>
+                <CardTitle class="text-base">Pantry Staples</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div class="flex flex-wrap gap-1.5">
+                  <Badge
+                    v-for="(item, index) in groceryList.pantryStaples"
+                    :key="index"
+                    variant="secondary"
+                    class="bg-amber-50 text-amber-700"
+                  >
+                    {{ item }}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card v-if="groceryList.prepAhead?.length">
+              <CardHeader>
+                <CardTitle class="text-base">Prep Ahead</CardTitle>
+              </CardHeader>
+              <CardContent class="space-y-2">
+                <div
+                  v-for="(item, index) in groceryList.prepAhead"
+                  :key="index"
+                  class="flex items-start gap-2 text-sm text-muted-foreground"
+                >
+                  <span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                  <span>{{ item }}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </template>
+      </section>
+
+      <section class="space-y-4">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-primary/80">Meals</p>
+            <h2 class="text-lg font-semibold">Daily diet plan</h2>
+          </div>
+          <p class="text-sm text-muted-foreground">
+            Each day shows the shared meal plus any member-specific adjustment.
+          </p>
+        </div>
+
+        <div v-for="day in dietPlan.days" :key="day.day" class="space-y-3">
+          <Badge variant="secondary" class="bg-primary/10 text-primary">Day {{ day.day }}</Badge>
+          <Card class="overflow-hidden">
+            <CardContent class="space-y-4 p-4">
+              <div v-for="(meal, mealKey) in day.meals" :key="mealKey" class="rounded-xl border bg-muted/15 p-4">
+                <div class="mb-2 flex flex-wrap items-center gap-2">
+                  <span class="text-sm font-semibold capitalize">{{ String(mealKey).replace(/([A-Z])/g, ' $1').trim() }}</span>
+                  <Badge v-if="meal?.time" variant="outline" class="text-[11px]">{{ meal.time }}</Badge>
+                </div>
+
+                <ul v-if="meal?.sharedItems?.length" class="space-y-1.5">
+                  <li
+                    v-for="(item, index) in meal.sharedItems"
+                    :key="index"
+                    class="flex items-start gap-2 text-sm text-muted-foreground"
+                  >
+                    <span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                    <span>{{ item }}</span>
+                  </li>
+                </ul>
+
+                <div v-if="meal?.memberModifications?.length" class="mt-3 space-y-1.5">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Member adjustments</p>
+                  <div
+                    v-for="(modification, index) in meal.memberModifications"
+                    :key="index"
+                    class="flex items-start gap-2 text-xs"
+                  >
+                    <Badge variant="outline" class="shrink-0 text-[10px]">{{ modification.member }}</Badge>
+                    <span class="text-muted-foreground">{{ modification.modification }}</span>
+                  </div>
+                </div>
+
+                <p v-if="meal?.notes" class="mt-3 text-xs italic text-muted-foreground/80">{{ meal.notes }}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
     </div>
 
-    <!-- Empty state -->
     <Card v-if="!dietPlan && !dietLoading && !dietError && members.length && selectedMemberIds.size">
       <CardContent class="py-8 text-center">
         <p class="text-sm text-muted-foreground">
