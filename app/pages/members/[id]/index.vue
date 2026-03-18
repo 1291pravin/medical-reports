@@ -2,10 +2,12 @@
 import type { FamilyMember } from '~/composables/useMembers'
 import type { Document } from '~/composables/useDocuments'
 import type { Medication } from '~/composables/useMedications'
+import type { FollowUp } from '~/composables/useFollowUps'
 
 const route = useRoute()
 const router = useRouter()
 const { deleteMember } = await useMembers()
+const { isOverdue, isDueSoon, relativeDueDate } = useFollowUps()
 
 const memberId = route.params.id as string
 const activeTab = ref('overview')
@@ -32,6 +34,64 @@ const regenerating = ref(false)
 const showRegenerateDialog = ref(false)
 const showDeleteMedDialog = ref(false)
 const deletingMedId = ref<string | null>(null)
+
+// Follow-ups state
+const followUpFilter = ref<'pending' | 'completed' | 'dismissed' | 'all'>('pending')
+const showAddFollowUpDialog = ref(false)
+const newFollowUp = ref({ title: '', dueDate: '', instructions: '', doctorName: '', hospitalName: '' })
+
+const { data: memberFollowUps, refresh: refreshFollowUps } = await useFetch<FollowUp[]>('/api/follow-ups', {
+  query: computed(() => ({
+    memberId,
+    status: followUpFilter.value === 'all' ? 'all' : followUpFilter.value,
+  })),
+  watch: [followUpFilter],
+})
+
+const { data: pendingFollowUpsData } = await useFetch<FollowUp[]>('/api/follow-ups', {
+  query: { memberId, status: 'pending' },
+  key: `follow-ups-pending-count-${memberId}`,
+})
+const pendingFollowUpsCount = computed(() => pendingFollowUpsData.value?.length || 0)
+
+function followUpDueDateColor(dueDate: string | null): string {
+  if (!dueDate) return 'text-muted-foreground'
+  if (isOverdue(dueDate)) return 'text-red-600 dark:text-red-400'
+  if (isDueSoon(dueDate)) return 'text-amber-600 dark:text-amber-400'
+  return 'text-green-600 dark:text-green-400'
+}
+
+async function completeFollowUp(id: string) {
+  await $fetch(`/api/follow-ups/${id}`, { method: 'PUT', body: { status: 'completed' } })
+  await refreshFollowUps()
+}
+
+async function dismissFollowUp(id: string) {
+  await $fetch(`/api/follow-ups/${id}`, { method: 'PUT', body: { status: 'dismissed' } })
+  await refreshFollowUps()
+}
+
+async function deleteFollowUp(id: string) {
+  await $fetch(`/api/follow-ups/${id}`, { method: 'DELETE' })
+  await refreshFollowUps()
+}
+
+async function handleAddFollowUp() {
+  await $fetch('/api/follow-ups', {
+    method: 'POST',
+    body: {
+      familyMemberId: memberId,
+      title: newFollowUp.value.title,
+      dueDate: newFollowUp.value.dueDate || null,
+      instructions: newFollowUp.value.instructions || null,
+      doctorName: newFollowUp.value.doctorName || null,
+      hospitalName: newFollowUp.value.hospitalName || null,
+    },
+  })
+  showAddFollowUpDialog.value = false
+  newFollowUp.value = { title: '', dueDate: '', instructions: '', doctorName: '', hospitalName: '' }
+  await refreshFollowUps()
+}
 
 // Diet plan state
 const dietPlan = ref<any>(null)
@@ -301,6 +361,10 @@ async function regenerateAll() {
         <TabsTrigger value="reports">Reports ({{ member.documentCount }})</TabsTrigger>
         <TabsTrigger value="medications">Medications ({{ member.activeMedCount }})</TabsTrigger>
         <TabsTrigger value="conditions">Conditions</TabsTrigger>
+        <TabsTrigger value="follow-ups">
+          Follow-Ups
+          <Badge v-if="pendingFollowUpsCount > 0" variant="secondary" class="ml-1 h-5 min-w-5 px-1 text-xs">{{ pendingFollowUpsCount }}</Badge>
+        </TabsTrigger>
         <TabsTrigger value="diet">Diet Plan</TabsTrigger>
       </TabsList>
 
@@ -642,6 +706,95 @@ async function regenerateAll() {
         </div>
       </TabsContent>
 
+      <!-- Follow-Ups Tab -->
+      <TabsContent value="follow-ups" class="mt-4">
+        <div class="mb-4 flex items-center justify-between">
+          <div class="flex items-center gap-1.5 rounded-lg border p-1">
+            <button
+              v-for="opt in (['pending', 'completed', 'dismissed', 'all'] as const)"
+              :key="opt"
+              class="rounded-md px-3 py-1.5 text-sm font-medium capitalize transition-colors"
+              :class="followUpFilter === opt ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+              @click="followUpFilter = opt"
+            >
+              {{ opt }}
+            </button>
+          </div>
+          <Button size="sm" @click="showAddFollowUpDialog = true">
+            <svg xmlns="http://www.w3.org/2000/svg" class="mr-1 h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+            Add Follow-Up
+          </Button>
+        </div>
+
+        <div v-if="memberFollowUps?.length" class="space-y-2">
+          <Card v-for="fu in memberFollowUps" :key="fu.id">
+            <CardContent class="p-4">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex-1 min-w-0" :class="{ 'opacity-50': fu.status === 'completed' || fu.status === 'dismissed' }">
+                  <div class="flex items-center gap-2 mb-1">
+                    <h4 class="text-sm font-medium" :class="{ 'line-through': fu.status === 'completed' }">{{ fu.title }}</h4>
+                    <Badge v-if="fu.sourceType === 'ai_extracted'" variant="secondary" class="text-xs">AI</Badge>
+                    <Badge v-else variant="outline" class="text-xs">Manual</Badge>
+                  </div>
+                  <p class="text-xs font-medium" :class="fu.status === 'pending' ? followUpDueDateColor(fu.dueDate) : 'text-muted-foreground'">
+                    {{ relativeDueDate(fu.dueDate) }}
+                  </p>
+                  <p v-if="fu.instructions" class="mt-1 text-xs text-muted-foreground">{{ fu.instructions }}</p>
+                  <div class="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                    <span v-if="fu.doctorName">Dr. {{ fu.doctorName }}</span>
+                    <span v-if="fu.hospitalName">{{ fu.hospitalName }}</span>
+                  </div>
+                  <NuxtLink
+                    v-if="fu.documentId"
+                    :to="`/documents/${fu.documentId}`"
+                    class="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2v6a2 2 0 0 0 2 2h6"/><path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6z"/></svg>
+                    {{ fu.documentTitle || 'View Document' }}
+                  </NuxtLink>
+                </div>
+                <div class="flex shrink-0 gap-1">
+                  <Button
+                    v-if="fu.status === 'pending'"
+                    variant="ghost"
+                    size="icon"
+                    class="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/30"
+                    title="Complete"
+                    @click="completeFollowUp(fu.id)"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+                  </Button>
+                  <Button
+                    v-if="fu.status === 'pending'"
+                    variant="ghost"
+                    size="icon"
+                    class="h-7 w-7 text-muted-foreground hover:text-orange-600"
+                    title="Dismiss"
+                    @click="dismissFollowUp(fu.id)"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    title="Delete"
+                    @click="deleteFollowUp(fu.id)"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <Card v-else>
+          <CardContent class="py-8 text-center">
+            <p class="text-sm text-muted-foreground">No follow-ups found</p>
+          </CardContent>
+        </Card>
+      </TabsContent>
+
       <!-- Diet Plan Tab -->
       <TabsContent value="diet" class="mt-4 space-y-4">
         <!-- Controls -->
@@ -823,6 +976,48 @@ async function regenerateAll() {
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction @click="handleDelete" class="bg-destructive text-destructive-foreground">
             Archive
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    <!-- Add Follow-Up Dialog -->
+    <AlertDialog v-model:open="showAddFollowUpDialog">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Add Follow-Up</AlertDialogTitle>
+          <AlertDialogDescription>
+            Create a manual follow-up reminder for {{ member.name }}.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div class="space-y-3 py-2">
+          <div class="space-y-1.5">
+            <Label for="fu-title">Title *</Label>
+            <Input id="fu-title" v-model="newFollowUp.title" placeholder="e.g., Follow-up with Dr. Smith" />
+          </div>
+          <div class="space-y-1.5">
+            <Label for="fu-date">Due Date</Label>
+            <Input id="fu-date" v-model="newFollowUp.dueDate" type="date" />
+          </div>
+          <div class="space-y-1.5">
+            <Label for="fu-instructions">Instructions</Label>
+            <Textarea id="fu-instructions" v-model="newFollowUp.instructions" rows="2" placeholder="e.g., Bring fasting blood sugar report" />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-1.5">
+              <Label for="fu-doctor">Doctor Name</Label>
+              <Input id="fu-doctor" v-model="newFollowUp.doctorName" placeholder="Dr. Name" />
+            </div>
+            <div class="space-y-1.5">
+              <Label for="fu-hospital">Hospital</Label>
+              <Input id="fu-hospital" v-model="newFollowUp.hospitalName" placeholder="Hospital name" />
+            </div>
+          </div>
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction :disabled="!newFollowUp.title.trim()" @click="handleAddFollowUp">
+            Add Follow-Up
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

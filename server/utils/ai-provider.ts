@@ -36,6 +36,11 @@ export interface DocumentExtraction {
     category: string
     description?: string
   }[]
+  followUps?: {
+    title: string
+    dueDate?: string
+    instructions?: string
+  }[]
 }
 
 export interface ChatMessage {
@@ -97,11 +102,19 @@ Return a JSON object with these fields:
       "category": "surgery" | "diagnosis" | "medication" | "lab" | "vaccination" | "hospitalization" | "consultation" | "other",
       "description": "Brief description of the event"
     }
+  ],
+  "followUps": [
+    {
+      "title": "Short description (e.g., 'Follow-up with Dr. Smith', 'Blood sugar recheck')",
+      "dueDate": "YYYY-MM-DD - calculate from report date if relative (e.g., '2 weeks' -> reportDate + 14 days)",
+      "instructions": "Specific instructions (e.g., 'Bring fasting blood sugar report', 'Stop medication 24h before')"
+    }
   ]
 }
 
 Set "isMedicalDocument" to false if the document is NOT a medical/health-related document (e.g., receipts, invoices, random photos, non-medical text). If false, you may skip all other fields.
 Only include fields where you find relevant information. Be precise with medication dosages and test values. Flag abnormal test values. Always provide a meaningful title and try to extract the report date.
+For followUps: Extract ANY mention of follow-up appointments, review dates, next visits, recheck instructions, or "come back in X weeks/months". Convert relative dates to absolute YYYY-MM-DD calculated from the report date. Each follow-up should be a distinct scheduled visit.
 For timelineEvents: Extract ALL significant medical events with dates from the document - surgeries, diagnoses, hospital admissions/discharges, vaccinations, medication starts/stops, significant lab results, consultations. Each event should be a distinct, dated occurrence.
 IMPORTANT: Return ONLY valid JSON, no markdown fences, no extra text.`
 }

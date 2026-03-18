@@ -48,6 +48,8 @@ export const timelineSourceTypeEnum = pgEnum('timeline_source_type', [
 
 export const chatRoleEnum = pgEnum('chat_role', ['user', 'assistant'])
 
+export const followUpStatusEnum = pgEnum('follow_up_status', ['pending', 'completed', 'dismissed'])
+
 // Tables
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -200,6 +202,21 @@ export const chatMessages = pgTable('chat_messages', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
+export const followUps = pgTable('follow_ups', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  familyMemberId: uuid('family_member_id').references(() => familyMembers.id, { onDelete: 'cascade' }).notNull(),
+  documentId: uuid('document_id').references(() => documents.id, { onDelete: 'set null' }),
+  title: text('title').notNull(),
+  dueDate: date('due_date'),
+  instructions: text('instructions'),
+  doctorName: text('doctor_name'),
+  hospitalName: text('hospital_name'),
+  status: followUpStatusEnum('status').default('pending').notNull(),
+  sourceType: timelineSourceTypeEnum('source_type').default('ai_extracted').notNull(),
+  completedAt: timestamp('completed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   familyMembers: many(familyMembers),
@@ -218,6 +235,7 @@ export const familyMembersRelations = relations(
     conditions: many(conditions),
     healthSummaries: many(memberHealthSummaries),
     timelineEvents: many(timelineEvents),
+    followUps: many(followUps),
   }),
 )
 
@@ -294,6 +312,11 @@ export const timelineEventsRelations = relations(timelineEvents, ({ one }) => ({
     fields: [timelineEvents.documentId],
     references: [documents.id],
   }),
+}))
+
+export const followUpsRelations = relations(followUps, ({ one }) => ({
+  familyMember: one(familyMembers, { fields: [followUps.familyMemberId], references: [familyMembers.id] }),
+  document: one(documents, { fields: [followUps.documentId], references: [documents.id] }),
 }))
 
 export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({

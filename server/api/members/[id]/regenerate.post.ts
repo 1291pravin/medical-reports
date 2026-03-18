@@ -9,6 +9,7 @@ import {
   documentConditions,
   memberHealthSummaries,
   timelineEvents,
+  followUps,
 } from '~~/server/database/schema'
 import { requireAuth } from '~~/server/utils/auth'
 import { useAIProvider, getHealthSummaryPrompt } from '~~/server/utils/ai-provider'
@@ -53,6 +54,9 @@ export default defineEventHandler(async (event) => {
 
   await db.delete(conditions).where(eq(conditions.familyMemberId, memberId))
   await db.delete(medications).where(eq(medications.familyMemberId, memberId))
+  await db.delete(followUps).where(
+    and(eq(followUps.familyMemberId, memberId), eq(followUps.sourceType, 'ai_extracted'))
+  )
 
   // Step 2: Get all processed documents with their AI summaries
   const processedDocs = await db
@@ -136,6 +140,23 @@ export default defineEventHandler(async (event) => {
           .insert(documentConditions)
           .values({ documentId: doc.docId, conditionId })
           .onConflictDoNothing()
+      }
+    }
+
+    // Re-create follow-ups
+    if (extraction.followUps?.length) {
+      for (const fu of extraction.followUps) {
+        await db.insert(followUps).values({
+          familyMemberId: memberId,
+          documentId: doc.docId,
+          title: fu.title,
+          dueDate: fu.dueDate || null,
+          instructions: fu.instructions || null,
+          doctorName: extraction.doctorName || null,
+          hospitalName: extraction.hospitalName || null,
+          status: 'pending',
+          sourceType: 'ai_extracted',
+        })
       }
     }
 

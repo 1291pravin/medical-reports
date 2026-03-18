@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const { user } = useUserSession()
 const { members, loading } = await useMembers()
+const { followUps, loading: followUpsLoading, fetchFollowUps, updateFollowUp, isOverdue, isDueSoon, relativeDueDate } = useFollowUps()
 
 const firstName = computed(() => user.value?.name?.split(' ')[0] || 'there')
 
@@ -10,6 +11,28 @@ const greeting = computed(() => {
   if (hour < 17) return 'Good afternoon'
   return 'Good evening'
 })
+
+// Fetch pending follow-ups
+await fetchFollowUps({ status: 'pending' })
+
+const upcomingFollowUps = computed(() => followUps.value.slice(0, 5))
+
+function dueDateColor(dueDate: string | null): string {
+  if (!dueDate) return 'text-muted-foreground'
+  if (isOverdue(dueDate)) return 'text-red-600 dark:text-red-400'
+  if (isDueSoon(dueDate)) return 'text-amber-600 dark:text-amber-400'
+  return 'text-green-600 dark:text-green-400'
+}
+
+async function completeFollowUp(id: string) {
+  await updateFollowUp(id, { status: 'completed' })
+  await fetchFollowUps({ status: 'pending' })
+}
+
+async function dismissFollowUp(id: string) {
+  await updateFollowUp(id, { status: 'dismissed' })
+  await fetchFollowUps({ status: 'pending' })
+}
 </script>
 
 <template>
@@ -57,6 +80,51 @@ const greeting = computed(() => {
           <span class="text-xs font-medium">Search</span>
         </div>
       </NuxtLink>
+    </div>
+
+    <!-- Upcoming Follow-Ups -->
+    <div v-if="upcomingFollowUps.length" class="mb-8">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Upcoming Follow-Ups</h2>
+      </div>
+      <div class="space-y-2">
+        <div
+          v-for="fu in upcomingFollowUps"
+          :key="fu.id"
+          class="flex items-center gap-3 rounded-xl border bg-card p-3 transition-all"
+        >
+          <div class="flex-1 min-w-0">
+            <p class="text-xs text-muted-foreground">{{ fu.memberName }}</p>
+            <p class="text-sm font-medium truncate">{{ fu.title }}</p>
+            <p class="text-xs font-medium" :class="dueDateColor(fu.dueDate)">
+              {{ relativeDueDate(fu.dueDate) }}
+            </p>
+            <p v-if="fu.instructions" class="mt-0.5 text-xs text-muted-foreground truncate">
+              {{ fu.instructions }}
+            </p>
+          </div>
+          <div class="flex shrink-0 gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              class="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/30"
+              title="Complete"
+              @click="completeFollowUp(fu.id)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              class="h-7 w-7 text-muted-foreground hover:text-destructive"
+              title="Dismiss"
+              @click="dismissFollowUp(fu.id)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Family Members -->

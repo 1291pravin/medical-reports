@@ -10,6 +10,7 @@ import {
   documentConditions,
   memberHealthSummaries,
   timelineEvents,
+  followUps,
 } from '~~/server/database/schema'
 import { requireAuth } from '~~/server/utils/auth'
 import { useAIProvider, getHealthSummaryPrompt } from '~~/server/utils/ai-provider'
@@ -171,6 +172,23 @@ export default defineEventHandler(async (event) => {
         eventDate: evt.eventDate || extraction.reportDate || doc.reportDate || null,
         category: cat,
         description: evt.description || null,
+        sourceType: 'ai_extracted',
+      })
+    }
+  }
+
+  // Step 6.5: Create follow-up reminders
+  if (extraction.followUps?.length) {
+    for (const fu of extraction.followUps) {
+      await db.insert(followUps).values({
+        familyMemberId: doc.familyMemberId,
+        documentId: doc.id,
+        title: fu.title,
+        dueDate: fu.dueDate || null,
+        instructions: fu.instructions || null,
+        doctorName: extraction.doctorName || null,
+        hospitalName: extraction.hospitalName || null,
+        status: 'pending',
         sourceType: 'ai_extracted',
       })
     }
