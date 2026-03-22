@@ -43,6 +43,13 @@
       "when": 1774179481141,
       "tag": "0005_classy_the_renegades",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1774199189068,
+      "tag": "0006_good_nehzno",
+      "breakpoints": true
     }
   ]
 }

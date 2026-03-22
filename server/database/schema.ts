@@ -284,10 +284,23 @@ export const appointments = pgTable('appointments', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
+export const notificationReads = pgTable(
+  'notification_reads',
+  {
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    notificationKey: text('notification_key').notNull(),
+    readAt: timestamp('read_at').defaultNow().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.notificationKey] })],
+)
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   familyMembers: many(familyMembers),
   chatMessages: many(chatMessages),
+  notificationReads: many(notificationReads),
 }))
 
 export const familyMembersRelations = relations(
@@ -426,5 +439,12 @@ export const labResultsRelations = relations(labResults, ({ one }) => ({
   document: one(documents, {
     fields: [labResults.documentId],
     references: [documents.id],
+  }),
+}))
+
+export const notificationReadsRelations = relations(notificationReads, ({ one }) => ({
+  user: one(users, {
+    fields: [notificationReads.userId],
+    references: [users.id],
   }),
 }))

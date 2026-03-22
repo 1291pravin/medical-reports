@@ -46,6 +46,8 @@ async function handleLogout() {
         <Moon v-else class="h-[18px] w-[18px]" />
       </Button>
 
+      <NotificationPanel />
+
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
           <Button variant="ghost" size="icon" class="rounded-full">
