@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronLeft, Pencil, MessageSquare, Loader, RefreshCw, Upload, AlertTriangle, Activity, FileText, Trash2, Plus, CheckCircle, X, UtensilsCrossed, CheckCircle2, Calendar, Droplets, Pill } from 'lucide-vue-next'
+import { ChevronLeft, Pencil, MessageSquare, Loader, RefreshCw, Upload, AlertTriangle, Activity, FileText, Trash2, Plus, CheckCircle, X, UtensilsCrossed, CheckCircle2, Calendar, Droplets, Pill, BarChart3, Scale, TrendingUp } from 'lucide-vue-next'
 import type { FamilyMember } from '~/composables/useMembers'
 import type { Document } from '~/composables/useDocuments'
 import type { Medication } from '~/composables/useMedications'
@@ -33,6 +33,34 @@ const { data: timelineEvents, refresh: refreshTimeline } = await useFetch<any[]>
 const generatingTimeline = ref(false)
 const regenerating = ref(false)
 const showRegenerateDialog = ref(false)
+
+// Analytics data
+const { data: weightTrend, refresh: refreshWeightTrend } = await useFetch<any[]>(`/api/analytics/${memberId}/weight-trend`)
+const { data: labTests } = await useFetch<any[]>(`/api/analytics/${memberId}/lab-trend`)
+const selectedLabTest = ref<string | null>(null)
+const { data: labTrendData, refresh: refreshLabTrend } = await useFetch<any[]>(
+  computed(() => `/api/analytics/${memberId}/lab-trend`),
+  { query: computed(() => selectedLabTest.value ? { test: selectedLabTest.value } : {}), watch: [selectedLabTest] },
+)
+const showWeightForm = ref(false)
+const newWeight = ref({ weightKg: '', recordedAt: new Date().toISOString().split('T')[0] })
+const weightSaving = ref(false)
+
+async function logWeight() {
+  if (!newWeight.value.weightKg) return
+  weightSaving.value = true
+  try {
+    await $fetch(`/api/analytics/${memberId}/weight`, {
+      method: 'POST',
+      body: { weightKg: Number(newWeight.value.weightKg), recordedAt: newWeight.value.recordedAt },
+    })
+    showWeightForm.value = false
+    newWeight.value = { weightKg: '', recordedAt: new Date().toISOString().split('T')[0] }
+    await refreshWeightTrend()
+  } finally {
+    weightSaving.value = false
+  }
+}
 const showDeleteMedDialog = ref(false)
 const deletingMedId = ref<string | null>(null)
 
@@ -367,6 +395,10 @@ async function regenerateAll() {
           <Badge v-if="pendingFollowUpsCount > 0" variant="secondary" class="ml-1 h-5 min-w-5 px-1 text-xs">{{ pendingFollowUpsCount }}</Badge>
         </TabsTrigger>
         <TabsTrigger value="diet">Diet Plan</TabsTrigger>
+        <TabsTrigger value="analytics">
+          <BarChart3 class="mr-1 h-4 w-4" />
+          Analytics
+        </TabsTrigger>
       </TabsList>
 
       <!-- Overview Tab -->
@@ -941,6 +973,146 @@ async function regenerateAll() {
             <p class="text-sm text-muted-foreground">
               Generate a personalized diet plan for {{ member.name }} based on their health profile, conditions, and medications.
             </p>
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <!-- Analytics Tab -->
+      <TabsContent value="analytics" class="mt-4 space-y-6">
+        <!-- Weight Tracking -->
+        <Card>
+          <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div>
+              <CardTitle class="text-lg flex items-center gap-2">
+                <Scale class="h-5 w-5 text-primary" />
+                Weight Tracking
+              </CardTitle>
+              <p class="text-sm text-muted-foreground mt-1">Track weight changes over time</p>
+            </div>
+            <Button size="sm" variant="outline" @click="showWeightForm = !showWeightForm">
+              <Plus class="mr-1 h-4 w-4" />
+              Log Weight
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <!-- Weight Log Form -->
+            <div v-if="showWeightForm" class="mb-4 flex flex-wrap items-end gap-3 rounded-lg border p-3 bg-muted/30">
+              <div class="space-y-1">
+                <label class="text-xs font-medium text-muted-foreground">Weight (kg)</label>
+                <input
+                  v-model="newWeight.weightKg"
+                  type="number"
+                  step="0.1"
+                  min="1"
+                  max="500"
+                  placeholder="72.5"
+                  class="h-9 w-28 rounded-md border bg-background px-3 text-sm"
+                />
+              </div>
+              <div class="space-y-1">
+                <label class="text-xs font-medium text-muted-foreground">Date</label>
+                <input
+                  v-model="newWeight.recordedAt"
+                  type="date"
+                  class="h-9 w-36 rounded-md border bg-background px-3 text-sm"
+                />
+              </div>
+              <Button size="sm" :disabled="weightSaving || !newWeight.weightKg" @click="logWeight">
+                <Loader v-if="weightSaving" class="mr-1 h-4 w-4 animate-spin" />
+                Save
+              </Button>
+              <Button size="sm" variant="ghost" @click="showWeightForm = false">Cancel</Button>
+            </div>
+
+            <ChartsWeightChart
+              v-if="weightTrend && weightTrend.length >= 2"
+              :data="weightTrend"
+              :show-bmi="true"
+            />
+            <div v-else-if="weightTrend && weightTrend.length === 1" class="text-center py-8 text-sm text-muted-foreground">
+              <Scale class="mx-auto h-8 w-8 mb-2 opacity-40" />
+              <p>One weight entry recorded. Log at least one more to see the trend chart.</p>
+            </div>
+            <div v-else class="text-center py-8 text-sm text-muted-foreground">
+              <Scale class="mx-auto h-8 w-8 mb-2 opacity-40" />
+              <p>No weight data yet. Click "Log Weight" to start tracking.</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- Lab Results Trends -->
+        <Card>
+          <CardHeader>
+            <CardTitle class="text-lg flex items-center gap-2">
+              <TrendingUp class="h-5 w-5 text-primary" />
+              Lab Results Trends
+            </CardTitle>
+            <p class="text-sm text-muted-foreground">Select a test to view its trend over time</p>
+          </CardHeader>
+          <CardContent>
+            <div v-if="labTests && labTests.length > 0" class="space-y-4">
+              <div class="flex flex-wrap gap-2">
+                <Button
+                  v-for="test in labTests"
+                  :key="test.testName"
+                  size="sm"
+                  :variant="selectedLabTest === test.testName ? 'default' : 'outline'"
+                  @click="selectedLabTest = selectedLabTest === test.testName ? null : test.testName"
+                >
+                  {{ test.testName }}
+                  <Badge variant="secondary" class="ml-1.5">{{ test.count }}</Badge>
+                </Button>
+              </div>
+
+              <ChartsLabTrendChart
+                v-if="selectedLabTest && labTrendData && labTrendData.length > 0"
+                :data="labTrendData"
+                :test-name="selectedLabTest"
+                :unit="labTests.find((t: any) => t.testName === selectedLabTest)?.unit"
+              />
+              <div v-else-if="!selectedLabTest" class="text-center py-6 text-sm text-muted-foreground">
+                Select a test above to view its trend chart
+              </div>
+            </div>
+            <div v-else class="text-center py-8 text-sm text-muted-foreground">
+              <TrendingUp class="mx-auto h-8 w-8 mb-2 opacity-40" />
+              <p>No lab results available. Upload medical reports to extract lab data.</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- Medication Timeline -->
+        <Card v-if="memberMeds && memberMeds.length > 0">
+          <CardHeader>
+            <CardTitle class="text-lg flex items-center gap-2">
+              <Pill class="h-5 w-5 text-primary" />
+              Medication Timeline
+            </CardTitle>
+            <p class="text-sm text-muted-foreground">Duration of medications over time</p>
+          </CardHeader>
+          <CardContent>
+            <ChartsMedicationTimeline
+              :medications="memberMeds.map(m => ({
+                name: m.name,
+                startDate: m.startDate,
+                endDate: m.endDate,
+                isActive: m.isActive,
+              }))"
+            />
+          </CardContent>
+        </Card>
+
+        <!-- Conditions Overview -->
+        <Card v-if="memberConditions && memberConditions.length > 0">
+          <CardHeader>
+            <CardTitle class="text-lg flex items-center gap-2">
+              <Activity class="h-5 w-5 text-primary" />
+              Conditions Overview
+            </CardTitle>
+            <p class="text-sm text-muted-foreground">Distribution of health conditions by status</p>
+          </CardHeader>
+          <CardContent>
+            <ChartsConditionsOverview :conditions="memberConditions" />
           </CardContent>
         </Card>
       </TabsContent>

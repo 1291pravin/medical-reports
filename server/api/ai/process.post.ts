@@ -11,6 +11,7 @@ import {
   memberHealthSummaries,
   timelineEvents,
   followUps,
+  labResults,
 } from '~~/server/database/schema'
 import { requireAuth } from '~~/server/utils/auth'
 import { useAIProvider, getHealthSummaryPrompt } from '~~/server/utils/ai-provider'
@@ -190,6 +191,44 @@ export default defineEventHandler(async (event) => {
         hospitalName: extraction.hospitalName || null,
         status: 'pending',
         sourceType: 'ai_extracted',
+      })
+    }
+  }
+
+  // Step 6.6: Normalize lab results into lab_results table
+  if (extraction.testValues?.length) {
+    for (const tv of extraction.testValues) {
+      // Try to parse numeric value from the test value string
+      const numMatch = tv.value?.match(/[\d.]+/)
+      const numericValue = numMatch ? parseFloat(numMatch[0]) : null
+
+      // Try to parse reference range (e.g. "70-100", "< 200")
+      let referenceMin: number | null = null
+      let referenceMax: number | null = null
+      if (tv.normalRange) {
+        const rangeMatch = tv.normalRange.match(/([\d.]+)\s*[-–]\s*([\d.]+)/)
+        if (rangeMatch) {
+          referenceMin = parseFloat(rangeMatch[1])
+          referenceMax = parseFloat(rangeMatch[2])
+        } else {
+          const ltMatch = tv.normalRange.match(/<\s*([\d.]+)/)
+          if (ltMatch) referenceMax = parseFloat(ltMatch[1])
+          const gtMatch = tv.normalRange.match(/>\s*([\d.]+)/)
+          if (gtMatch) referenceMin = parseFloat(gtMatch[1])
+        }
+      }
+
+      await db.insert(labResults).values({
+        familyMemberId: doc.familyMemberId,
+        documentId: doc.id,
+        testName: tv.name,
+        testValue: tv.value || '',
+        numericValue: numericValue !== null && !isNaN(numericValue) ? String(numericValue) : null,
+        unit: tv.unit || null,
+        referenceMin: referenceMin !== null ? String(referenceMin) : null,
+        referenceMax: referenceMax !== null ? String(referenceMax) : null,
+        isAbnormal: tv.isAbnormal || false,
+        reportDate: extraction.reportDate || doc.reportDate || null,
       })
     }
   }

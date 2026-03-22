@@ -50,6 +50,8 @@ export const chatRoleEnum = pgEnum('chat_role', ['user', 'assistant'])
 
 export const followUpStatusEnum = pgEnum('follow_up_status', ['pending', 'completed', 'dismissed'])
 
+export const weightLogSourceEnum = pgEnum('weight_log_source', ['manual', 'document'])
+
 // Tables
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -217,6 +219,36 @@ export const followUps = pgTable('follow_ups', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
+export const weightLogs = pgTable('weight_logs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  familyMemberId: uuid('family_member_id')
+    .references(() => familyMembers.id, { onDelete: 'cascade' })
+    .notNull(),
+  weightKg: numeric('weight_kg', { precision: 5, scale: 2 }).notNull(),
+  recordedAt: date('recorded_at').notNull(),
+  source: weightLogSourceEnum('source').default('manual').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+export const labResults = pgTable('lab_results', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  familyMemberId: uuid('family_member_id')
+    .references(() => familyMembers.id, { onDelete: 'cascade' })
+    .notNull(),
+  documentId: uuid('document_id').references(() => documents.id, {
+    onDelete: 'set null',
+  }),
+  testName: text('test_name').notNull(),
+  testValue: text('test_value').notNull(),
+  numericValue: numeric('numeric_value', { precision: 10, scale: 4 }),
+  unit: text('unit'),
+  referenceMin: numeric('reference_min', { precision: 10, scale: 4 }),
+  referenceMax: numeric('reference_max', { precision: 10, scale: 4 }),
+  isAbnormal: boolean('is_abnormal').default(false),
+  reportDate: date('report_date'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   familyMembers: many(familyMembers),
@@ -236,6 +268,8 @@ export const familyMembersRelations = relations(
     healthSummaries: many(memberHealthSummaries),
     timelineEvents: many(timelineEvents),
     followUps: many(followUps),
+    weightLogs: many(weightLogs),
+    labResults: many(labResults),
   }),
 )
 
@@ -327,5 +361,23 @@ export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
   user: one(users, {
     fields: [chatMessages.userId],
     references: [users.id],
+  }),
+}))
+
+export const weightLogsRelations = relations(weightLogs, ({ one }) => ({
+  familyMember: one(familyMembers, {
+    fields: [weightLogs.familyMemberId],
+    references: [familyMembers.id],
+  }),
+}))
+
+export const labResultsRelations = relations(labResults, ({ one }) => ({
+  familyMember: one(familyMembers, {
+    fields: [labResults.familyMemberId],
+    references: [familyMembers.id],
+  }),
+  document: one(documents, {
+    fields: [labResults.documentId],
+    references: [documents.id],
   }),
 }))

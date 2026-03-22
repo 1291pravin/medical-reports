@@ -1,0 +1,44 @@
+import { eq, and, sql } from 'drizzle-orm'
+import { useDb } from '~~/server/database'
+import { familyMembers, documents, medications, conditions } from '~~/server/database/schema'
+import { requireAuth } from '~~/server/utils/auth'
+import { serializeFamilyMember } from '~~/server/utils/family-member'
+
+export default defineEventHandler(async (event) => {
+  const user = await requireAuth(event)
+  const db = useDb()
+
+  const members = await db
+    .select({
+      id: familyMembers.id,
+      name: familyMembers.name,
+      dob: familyMembers.dob,
+      weightKg: familyMembers.weightKg,
+      heightCm: familyMembers.heightCm,
+      bloodGroup: familyMembers.bloodGroup,
+      allergies: familyMembers.allergies,
+      emergencyContact: familyMembers.emergencyContact,
+      dietPreference: familyMembers.dietPreference,
+      photoUrl: familyMembers.photoUrl,
+      isActive: familyMembers.isActive,
+      createdAt: familyMembers.createdAt,
+      documentCount: sql<number>`(SELECT count(*) FROM documents WHERE documents.family_member_id = "family_members"."id")::int`,
+      activeMedCount: sql<number>`(SELECT count(*) FROM medications WHERE medications.family_member_id = "family_members"."id" AND medications.is_active = true)::int`,
+      activeConditions: sql<number>`(SELECT count(*) FROM conditions WHERE conditions.family_member_id = "family_members"."id" AND conditions.status = 'active')::int`,
+      lastDocumentDate: sql<string>`(SELECT max(created_at)::text FROM documents WHERE documents.family_member_id = "family_members"."id")`,
+    })
+    .from(familyMembers)
+    .where(
+      and(
+        eq(familyMembers.userId, user.id),
+        eq(familyMembers.isActive, true),
+      ),
+    )
+    .orderBy(familyMembers.name)
+
+  return members.map((m) => ({
+    ...serializeFamilyMember(m),
+    activeConditions: m.activeConditions,
+    lastDocumentDate: m.lastDocumentDate,
+  }))
+})
