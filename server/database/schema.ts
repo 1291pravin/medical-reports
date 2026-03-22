@@ -52,6 +52,25 @@ export const followUpStatusEnum = pgEnum('follow_up_status', ['pending', 'comple
 
 export const weightLogSourceEnum = pgEnum('weight_log_source', ['manual', 'document'])
 
+export const appointmentTypeEnum = pgEnum('appointment_type', [
+  'consultation',
+  'lab_test',
+  'imaging',
+  'vaccination',
+  'dental',
+  'eye_exam',
+  'therapy',
+  'other',
+])
+
+export const appointmentStatusEnum = pgEnum('appointment_status', [
+  'scheduled',
+  'completed',
+  'cancelled',
+  'rescheduled',
+  'no_show',
+])
+
 // Tables
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -249,6 +268,22 @@ export const labResults = pgTable('lab_results', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
+export const appointments = pgTable('appointments', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  familyMemberId: uuid('family_member_id')
+    .references(() => familyMembers.id, { onDelete: 'cascade' })
+    .notNull(),
+  followUpId: uuid('follow_up_id').references(() => followUps.id, { onDelete: 'set null' }),
+  appointmentType: appointmentTypeEnum('appointment_type').default('consultation').notNull(),
+  dateTime: timestamp('date_time').notNull(),
+  endDateTime: timestamp('end_date_time'),
+  location: text('location'),
+  doctorName: text('doctor_name'),
+  notes: text('notes'),
+  status: appointmentStatusEnum('status').default('scheduled').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   familyMembers: many(familyMembers),
@@ -268,6 +303,7 @@ export const familyMembersRelations = relations(
     healthSummaries: many(memberHealthSummaries),
     timelineEvents: many(timelineEvents),
     followUps: many(followUps),
+    appointments: many(appointments),
     weightLogs: many(weightLogs),
     labResults: many(labResults),
   }),
@@ -368,6 +404,17 @@ export const weightLogsRelations = relations(weightLogs, ({ one }) => ({
   familyMember: one(familyMembers, {
     fields: [weightLogs.familyMemberId],
     references: [familyMembers.id],
+  }),
+}))
+
+export const appointmentsRelations = relations(appointments, ({ one }) => ({
+  familyMember: one(familyMembers, {
+    fields: [appointments.familyMemberId],
+    references: [familyMembers.id],
+  }),
+  followUp: one(followUps, {
+    fields: [appointments.followUpId],
+    references: [followUps.id],
   }),
 }))
 

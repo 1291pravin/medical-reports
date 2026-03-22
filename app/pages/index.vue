@@ -10,6 +10,9 @@ import {
   CheckCircle,
   X,
   Activity,
+  Calendar,
+  MapPin,
+  Stethoscope,
 } from 'lucide-vue-next'
 
 const { user } = useUserSession()
@@ -30,6 +33,12 @@ await fetchFollowUps({ status: 'pending' })
 
 const { data: stats } = await useFetch('/api/dashboard/stats')
 const { data: recentActivity } = await useFetch('/api/dashboard/activity')
+
+const { appointmentTypeLabel, appointmentTypeBadgeColor, formatAppointmentTime } = useAppointments()
+const { data: upcomingAppointments } = await useFetch('/api/appointments', {
+  query: { status: 'scheduled' },
+})
+const displayedAppointments = computed(() => (upcomingAppointments.value || []).slice(0, 5))
 
 const upcomingFollowUps = computed(() => followUps.value.slice(0, 5))
 
@@ -78,7 +87,7 @@ function formatDate(date: string | null): string {
     </div>
 
     <!-- Stats Cards -->
-    <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
       <div class="rounded-xl border bg-card p-4">
         <div class="flex items-center gap-3">
           <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -120,6 +129,17 @@ function formatDate(date: string | null): string {
           <div>
             <p class="text-2xl font-bold">{{ stats?.pendingFollowUps ?? 0 }}</p>
             <p class="text-[11px] text-muted-foreground">Follow-Ups</p>
+          </div>
+        </div>
+      </div>
+      <div class="rounded-xl border bg-card p-4">
+        <div class="flex items-center gap-3">
+          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50 text-violet-600 dark:bg-violet-950/30 dark:text-violet-400">
+            <Calendar class="h-4 w-4" />
+          </div>
+          <div>
+            <p class="text-2xl font-bold">{{ stats?.upcomingAppointments ?? 0 }}</p>
+            <p class="text-[11px] text-muted-foreground">Appointments</p>
           </div>
         </div>
       </div>
@@ -224,7 +244,47 @@ function formatDate(date: string | null): string {
       </div>
 
       <!-- Right Column -->
-      <div>
+      <div class="space-y-6">
+        <!-- Upcoming Appointments -->
+        <div v-if="displayedAppointments.length > 0">
+          <div class="mb-3 flex items-center justify-between">
+            <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Upcoming Appointments</h2>
+            <NuxtLink to="/calendar" class="text-xs font-medium text-primary hover:underline">View calendar</NuxtLink>
+          </div>
+          <div class="space-y-2">
+            <NuxtLink
+              v-for="apt in displayedAppointments"
+              :key="apt.id"
+              :to="`/calendar`"
+              class="block rounded-xl border bg-card p-3 transition-all hover:border-primary/20"
+            >
+              <div class="flex items-start gap-3">
+                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600 dark:bg-violet-950/30 dark:text-violet-400">
+                  <Calendar class="h-4 w-4" />
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-medium px-1.5 py-0.5 rounded" :class="appointmentTypeBadgeColor(apt.appointmentType)">
+                      {{ appointmentTypeLabel(apt.appointmentType) }}
+                    </span>
+                    <span class="text-xs text-muted-foreground">{{ apt.memberName }}</span>
+                  </div>
+                  <p class="mt-0.5 text-sm font-medium">
+                    {{ new Date(apt.dateTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) }}
+                    at {{ formatAppointmentTime(apt.dateTime) }}
+                  </p>
+                  <p v-if="apt.doctorName" class="text-xs text-muted-foreground flex items-center gap-1">
+                    <Stethoscope class="h-3 w-3" /> {{ apt.doctorName }}
+                  </p>
+                  <p v-if="apt.location" class="text-xs text-muted-foreground flex items-center gap-1">
+                    <MapPin class="h-3 w-3" /> {{ apt.location }}
+                  </p>
+                </div>
+              </div>
+            </NuxtLink>
+          </div>
+        </div>
+
         <!-- Upcoming Follow-Ups -->
         <div>
           <div class="mb-3 flex items-center justify-between">

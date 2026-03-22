@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ChevronLeft, Pencil, MessageSquare, Loader, RefreshCw, Upload, AlertTriangle, Activity, FileText, Trash2, Plus, CheckCircle, X, UtensilsCrossed, CheckCircle2, Calendar, Droplets, Pill, BarChart3, Scale, TrendingUp } from 'lucide-vue-next'
+import { ChevronLeft, Pencil, MessageSquare, Loader, RefreshCw, Upload, AlertTriangle, Activity, FileText, Trash2, Plus, CheckCircle, X, UtensilsCrossed, CheckCircle2, Calendar, Droplets, Pill, BarChart3, Scale, TrendingUp, Clock, MapPin, Stethoscope } from 'lucide-vue-next'
 import type { FamilyMember } from '~/composables/useMembers'
 import type { Document } from '~/composables/useDocuments'
 import type { Medication } from '~/composables/useMedications'
 import type { FollowUp } from '~/composables/useFollowUps'
+import type { Appointment } from '~/composables/useAppointments'
 
 const route = useRoute()
 const router = useRouter()
@@ -61,6 +62,106 @@ async function logWeight() {
     weightSaving.value = false
   }
 }
+// Appointments data
+const { appointmentTypeLabel, appointmentTypeBadgeColor, formatAppointmentTime, formatAppointmentDate } = useAppointments()
+const { data: memberAppointments, refresh: refreshAppointments } = await useFetch<Appointment[]>('/api/appointments', {
+  query: { memberId, status: 'all' },
+})
+const upcomingAppointments = computed(() => (memberAppointments.value || []).filter(a => a.status === 'scheduled'))
+const pastAppointments = computed(() => (memberAppointments.value || []).filter(a => a.status !== 'scheduled'))
+
+const showAddAppointmentDialog = ref(false)
+const appointmentSaving = ref(false)
+const newAppointment = ref({
+  appointmentType: 'consultation' as string,
+  date: new Date().toISOString().split('T')[0],
+  time: '09:00',
+  endTime: '',
+  location: '',
+  doctorName: '',
+  notes: '',
+  followUpId: null as string | null,
+})
+
+const appointmentTypes = [
+  { value: 'consultation', label: 'Consultation' },
+  { value: 'lab_test', label: 'Lab Test' },
+  { value: 'imaging', label: 'Imaging' },
+  { value: 'vaccination', label: 'Vaccination' },
+  { value: 'dental', label: 'Dental' },
+  { value: 'eye_exam', label: 'Eye Exam' },
+  { value: 'therapy', label: 'Therapy' },
+  { value: 'other', label: 'Other' },
+]
+
+async function createAppointment() {
+  if (!newAppointment.value.date || !newAppointment.value.time) return
+  appointmentSaving.value = true
+  try {
+    const dateTime = `${newAppointment.value.date}T${newAppointment.value.time}:00`
+    const endDateTime = newAppointment.value.endTime ? `${newAppointment.value.date}T${newAppointment.value.endTime}:00` : null
+    await $fetch('/api/appointments', {
+      method: 'POST',
+      body: {
+        familyMemberId: memberId,
+        followUpId: newAppointment.value.followUpId,
+        appointmentType: newAppointment.value.appointmentType,
+        dateTime,
+        endDateTime,
+        location: newAppointment.value.location || null,
+        doctorName: newAppointment.value.doctorName || null,
+        notes: newAppointment.value.notes || null,
+      },
+    })
+    showAddAppointmentDialog.value = false
+    newAppointment.value = { appointmentType: 'consultation', date: new Date().toISOString().split('T')[0], time: '09:00', endTime: '', location: '', doctorName: '', notes: '', followUpId: null }
+    await refreshAppointments()
+  } finally {
+    appointmentSaving.value = false
+  }
+}
+
+async function completeAppointment(id: string) {
+  await $fetch(`/api/appointments/${id}`, { method: 'PUT', body: { status: 'completed' } })
+  await refreshAppointments()
+  await refreshFollowUps()
+}
+
+async function cancelAppointment(id: string) {
+  await $fetch(`/api/appointments/${id}`, { method: 'PUT', body: { status: 'cancelled' } })
+  await refreshAppointments()
+}
+
+async function deleteAppointmentById(id: string) {
+  await $fetch(`/api/appointments/${id}`, { method: 'DELETE' })
+  await refreshAppointments()
+}
+
+function scheduleFromFollowUp(fu: FollowUp) {
+  newAppointment.value = {
+    appointmentType: 'consultation',
+    date: fu.dueDate || new Date().toISOString().split('T')[0],
+    time: '09:00',
+    endTime: '',
+    location: fu.hospitalName || '',
+    doctorName: fu.doctorName || '',
+    notes: fu.instructions || '',
+    followUpId: fu.id,
+  }
+  showAddAppointmentDialog.value = true
+}
+
+function statusBadgeClass(status: string): string {
+  const map: Record<string, string> = {
+    scheduled: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    completed: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    rescheduled: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    no_show: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400',
+  }
+  return map[status] || map.scheduled
+}
+
 const showDeleteMedDialog = ref(false)
 const deletingMedId = ref<string | null>(null)
 
@@ -393,6 +494,10 @@ async function regenerateAll() {
         <TabsTrigger value="follow-ups">
           Follow-Ups
           <Badge v-if="pendingFollowUpsCount > 0" variant="secondary" class="ml-1 h-5 min-w-5 px-1 text-xs">{{ pendingFollowUpsCount }}</Badge>
+        </TabsTrigger>
+        <TabsTrigger value="appointments">
+          <Calendar class="mr-1 h-4 w-4" />
+          Appointments
         </TabsTrigger>
         <TabsTrigger value="diet">Diet Plan</TabsTrigger>
         <TabsTrigger value="analytics">
@@ -808,6 +913,16 @@ async function regenerateAll() {
                     <X class="h-4 w-4" />
                   </Button>
                   <Button
+                    v-if="fu.status === 'pending'"
+                    variant="ghost"
+                    size="icon"
+                    class="h-7 w-7 text-violet-600 hover:text-violet-700 hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-950/30"
+                    title="Schedule Appointment"
+                    @click="scheduleFromFollowUp(fu)"
+                  >
+                    <Calendar class="h-4 w-4" />
+                  </Button>
+                  <Button
                     variant="ghost"
                     size="icon"
                     class="h-7 w-7 text-muted-foreground hover:text-destructive"
@@ -824,6 +939,106 @@ async function regenerateAll() {
         <Card v-else>
           <CardContent class="py-8 text-center">
             <p class="text-sm text-muted-foreground">No follow-ups found</p>
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <!-- Appointments Tab -->
+      <TabsContent value="appointments" class="mt-4 space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-medium text-muted-foreground">Manage appointments for {{ member?.name }}</h3>
+          <Button size="sm" @click="showAddAppointmentDialog = true">
+            <Plus class="mr-1 h-4 w-4" /> New Appointment
+          </Button>
+        </div>
+
+        <!-- Upcoming -->
+        <div v-if="upcomingAppointments.length > 0">
+          <h4 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Upcoming</h4>
+          <div class="space-y-2">
+            <Card v-for="apt in upcomingAppointments" :key="apt.id">
+              <CardContent class="p-4">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="space-y-1">
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs font-medium px-1.5 py-0.5 rounded" :class="appointmentTypeBadgeColor(apt.appointmentType)">
+                        {{ appointmentTypeLabel(apt.appointmentType) }}
+                      </span>
+                      <span class="text-xs font-medium px-1.5 py-0.5 rounded" :class="statusBadgeClass(apt.status)">
+                        {{ apt.status }}
+                      </span>
+                    </div>
+                    <p class="text-sm font-medium flex items-center gap-1">
+                      <Clock class="h-3.5 w-3.5 text-muted-foreground" />
+                      {{ formatAppointmentDate(apt.dateTime) }} at {{ formatAppointmentTime(apt.dateTime) }}
+                      <span v-if="apt.endDateTime" class="text-muted-foreground">– {{ formatAppointmentTime(apt.endDateTime) }}</span>
+                    </p>
+                    <p v-if="apt.doctorName" class="text-xs text-muted-foreground flex items-center gap-1">
+                      <Stethoscope class="h-3 w-3" /> {{ apt.doctorName }}
+                    </p>
+                    <p v-if="apt.location" class="text-xs text-muted-foreground flex items-center gap-1">
+                      <MapPin class="h-3 w-3" /> {{ apt.location }}
+                    </p>
+                    <p v-if="apt.notes" class="text-xs text-muted-foreground mt-1">{{ apt.notes }}</p>
+                    <p v-if="apt.followUpTitle" class="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                      <Activity class="h-3 w-3" /> Linked: {{ apt.followUpTitle }}
+                    </p>
+                  </div>
+                  <div class="flex shrink-0 gap-1">
+                    <Button variant="ghost" size="icon" class="h-7 w-7 text-green-600" title="Complete" @click="completeAppointment(apt.id)">
+                      <CheckCircle class="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" class="h-7 w-7 text-amber-600" title="Cancel" @click="cancelAppointment(apt.id)">
+                      <X class="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" class="h-7 w-7 text-muted-foreground hover:text-destructive" title="Delete" @click="deleteAppointmentById(apt.id)">
+                      <Trash2 class="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        <!-- Past -->
+        <div v-if="pastAppointments.length > 0">
+          <h4 class="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Past</h4>
+          <div class="space-y-2">
+            <Card v-for="apt in pastAppointments" :key="apt.id" class="opacity-70">
+              <CardContent class="p-4">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="space-y-1">
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs font-medium px-1.5 py-0.5 rounded" :class="appointmentTypeBadgeColor(apt.appointmentType)">
+                        {{ appointmentTypeLabel(apt.appointmentType) }}
+                      </span>
+                      <span class="text-xs font-medium px-1.5 py-0.5 rounded" :class="statusBadgeClass(apt.status)">
+                        {{ apt.status }}
+                      </span>
+                    </div>
+                    <p class="text-sm flex items-center gap-1">
+                      <Clock class="h-3.5 w-3.5 text-muted-foreground" />
+                      {{ formatAppointmentDate(apt.dateTime) }} at {{ formatAppointmentTime(apt.dateTime) }}
+                    </p>
+                    <p v-if="apt.doctorName" class="text-xs text-muted-foreground">{{ apt.doctorName }}</p>
+                    <p v-if="apt.location" class="text-xs text-muted-foreground">{{ apt.location }}</p>
+                  </div>
+                  <Button variant="ghost" size="icon" class="h-7 w-7 text-muted-foreground hover:text-destructive" @click="deleteAppointmentById(apt.id)">
+                    <Trash2 class="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        <!-- Empty state -->
+        <Card v-if="!upcomingAppointments.length && !pastAppointments.length">
+          <CardContent class="py-8 text-center">
+            <Calendar class="mx-auto h-8 w-8 mb-2 opacity-40" />
+            <p class="text-sm text-muted-foreground">No appointments yet</p>
+            <Button size="sm" variant="link" class="mt-1" @click="showAddAppointmentDialog = true">Schedule one</Button>
           </CardContent>
         </Card>
       </TabsContent>
@@ -1213,5 +1428,55 @@ async function regenerateAll() {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+    <!-- Add Appointment Dialog -->
+    <Dialog v-model:open="showAddAppointmentDialog">
+      <DialogContent class="max-w-md">
+        <DialogHeader>
+          <DialogTitle>New Appointment</DialogTitle>
+        </DialogHeader>
+        <div class="space-y-3">
+          <div class="space-y-1">
+            <Label>Appointment Type</Label>
+            <select v-model="newAppointment.appointmentType" class="h-9 w-full rounded-md border bg-background px-3 text-sm">
+              <option v-for="t in appointmentTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-1">
+              <Label>Date</Label>
+              <input v-model="newAppointment.date" type="date" class="h-9 w-full rounded-md border bg-background px-3 text-sm" />
+            </div>
+            <div class="space-y-1">
+              <Label>Time</Label>
+              <input v-model="newAppointment.time" type="time" class="h-9 w-full rounded-md border bg-background px-3 text-sm" />
+            </div>
+          </div>
+          <div class="space-y-1">
+            <Label>End Time <span class="text-muted-foreground">(optional)</span></Label>
+            <input v-model="newAppointment.endTime" type="time" class="h-9 w-full rounded-md border bg-background px-3 text-sm" />
+          </div>
+          <div class="space-y-1">
+            <Label>Doctor Name <span class="text-muted-foreground">(optional)</span></Label>
+            <input v-model="newAppointment.doctorName" type="text" placeholder="Dr. Smith" class="h-9 w-full rounded-md border bg-background px-3 text-sm" />
+          </div>
+          <div class="space-y-1">
+            <Label>Location <span class="text-muted-foreground">(optional)</span></Label>
+            <input v-model="newAppointment.location" type="text" placeholder="City Hospital" class="h-9 w-full rounded-md border bg-background px-3 text-sm" />
+          </div>
+          <div class="space-y-1">
+            <Label>Notes <span class="text-muted-foreground">(optional)</span></Label>
+            <textarea v-model="newAppointment.notes" rows="2" placeholder="Bring reports, fasting required..." class="w-full rounded-md border bg-background px-3 py-2 text-sm" />
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <Button variant="outline" @click="showAddAppointmentDialog = false">Cancel</Button>
+            <Button :disabled="appointmentSaving || !newAppointment.date || !newAppointment.time" @click="createAppointment">
+              <Loader v-if="appointmentSaving" class="mr-1 h-4 w-4 animate-spin" />
+              Create Appointment
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>

@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { BarChart3, Users, Activity, Pill, FileText, TrendingUp, Scale, ArrowRight } from 'lucide-vue-next'
 
-definePageMeta({ middleware: 'auth' })
-
 const { data: familyData, pending } = await useFetch<any[]>('/api/analytics/family')
 
 const totalDocuments = computed(() => familyData.value?.reduce((sum, m) => sum + (m.documentCount || 0), 0) || 0)

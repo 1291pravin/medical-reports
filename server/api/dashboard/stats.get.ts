@@ -36,6 +36,12 @@ export default defineEventHandler(async (event) => {
           SELECT id FROM family_members WHERE user_id = ${user.id} AND is_active = true
         )
       )::int`,
+      upcomingAppointments: sql<number>`(
+        SELECT count(*) FROM appointments
+        WHERE appointments.status = 'scheduled' AND appointments.date_time >= now() AND appointments.family_member_id IN (
+          SELECT id FROM family_members WHERE user_id = ${user.id} AND is_active = true
+        )
+      )::int`,
     })
     .from(sql`(SELECT 1) as dummy`)
 

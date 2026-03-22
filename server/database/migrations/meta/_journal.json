@@ -36,6 +36,13 @@
       "when": 1774178075333,
       "tag": "0004_long_psylocke",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1774179481141,
+      "tag": "0005_classy_the_renegades",
+      "breakpoints": true
     }
   ]
 }

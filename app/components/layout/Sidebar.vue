@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Home, Users, Upload, Pill, UtensilsCrossed, BarChart3, Search } from 'lucide-vue-next'
+import { Home, Users, Upload, Pill, UtensilsCrossed, BarChart3, Calendar, Search } from 'lucide-vue-next'
 
 const route = useRoute()
 
@@ -9,6 +9,7 @@ const links = [
   { to: '/documents/upload', label: 'Upload Report', icon: Upload },
   { to: '/medications', label: 'Medications', icon: Pill },
   { to: '/diet', label: 'Family Diet', icon: UtensilsCrossed },
+  { to: '/calendar', label: 'Calendar', icon: Calendar },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/search', label: 'Search', icon: Search },
 ]
