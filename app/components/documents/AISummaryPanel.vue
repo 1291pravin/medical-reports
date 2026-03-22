@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Bot, Trash2, Check } from 'lucide-vue-next'
 import type { AIExtraction } from '~/composables/useDocuments'
 
 const props = defineProps<{
@@ -62,7 +63,7 @@ function handleApprove() {
   <div class="space-y-6">
     <div class="flex items-center gap-2">
       <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+        <Bot class="h-4 w-4 text-primary" />
       </div>
       <div>
         <h3 class="font-semibold">AI Analysis</h3>
@@ -154,7 +155,7 @@ function handleApprove() {
             <Input v-model="med.purpose" placeholder="Purpose" />
           </div>
           <Button type="button" variant="ghost" size="icon" class="ml-2 shrink-0" @click="removeMedication(i)">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            <Trash2 class="h-4 w-4 text-muted-foreground" />
           </Button>
         </div>
       </div>
@@ -186,7 +187,7 @@ function handleApprove() {
 
     <!-- Approve Button -->
     <Button class="w-full" size="lg" @click="handleApprove" :disabled="loading">
-      <svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      <Check class="mr-2 h-4 w-4" />
       {{ loading ? 'Saving...' : 'Approve & Save' }}
     </Button>
   </div>

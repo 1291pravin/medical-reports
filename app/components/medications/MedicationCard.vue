@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Pill, FileText, Trash2 } from 'lucide-vue-next'
 import type { Medication } from '~/composables/useMedications'
 
 const props = defineProps<{
@@ -43,7 +44,7 @@ function daysRemaining(endDate: string | null): string {
         class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
         :class="isEndingSoon(medication.endDate) ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-primary/8 text-primary'"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+        <Pill class="h-4 w-4" />
       </div>
 
       <div class="flex-1 min-w-0">
@@ -69,7 +70,7 @@ function daysRemaining(endDate: string | null): string {
           :to="`/documents/${medication.documentId}`"
           class="mt-1.5 inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2v6a2 2 0 0 0 2 2h6"/><path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6z"/></svg>
+          <FileText class="h-3 w-3" />
           {{ medication.documentTitle || 'Source Document' }}
         </NuxtLink>
       </div>
@@ -80,7 +81,7 @@ function daysRemaining(endDate: string | null): string {
         class="h-7 w-7 shrink-0 text-muted-foreground/50 hover:text-destructive"
         @click="emit('delete', medication.id)"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+        <Trash2 class="h-3.5 w-3.5" />
       </Button>
     </div>
   </div>

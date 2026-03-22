@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChevronLeft, RefreshCw, MessageSquare, Send } from 'lucide-vue-next'
 import type { FamilyMember } from '~/composables/useMembers'
 
 const route = useRoute()
@@ -91,7 +92,7 @@ async function clearChat() {
     <div class="flex items-center justify-between border-b px-4 py-3">
       <div class="flex items-center gap-3">
         <Button variant="ghost" size="icon" @click="router.push(`/members/${memberId}`)">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          <ChevronLeft class="h-4 w-4" />
         </Button>
         <div>
           <h1 class="text-sm font-semibold tracking-tight">{{ member?.name || 'Health Chat' }}</h1>
@@ -105,7 +106,7 @@ async function clearChat() {
         :disabled="clearing || sending"
         @click="clearChat"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="mr-1.5 h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+        <RefreshCw class="mr-1.5 h-3.5 w-3.5" />
         {{ clearing ? 'Clearing...' : 'New Chat' }}
       </Button>
     </div>
@@ -114,7 +115,7 @@ async function clearChat() {
     <div ref="messagesContainer" class="flex-1 overflow-y-auto p-4 space-y-4">
       <div v-if="!messages.length" class="flex h-full items-center justify-center">
         <div class="text-center text-sm text-muted-foreground">
-          <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto mb-2 h-8 w-8 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <MessageSquare class="mx-auto mb-2 h-8 w-8 opacity-50" />
           <p>Ask questions about {{ member?.name }}'s health</p>
           <p class="mt-1 text-xs">e.g. "What medications are currently active?" or "Summarize recent lab results"</p>
         </div>
@@ -160,7 +161,7 @@ async function clearChat() {
           @keydown.enter.exact.prevent="sendMessage"
         />
         <Button type="submit" :disabled="!input.trim() || sending" size="icon">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" x2="11" y1="2" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          <Send class="h-4 w-4" />
         </Button>
       </form>
     </div>

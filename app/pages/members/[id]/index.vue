@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChevronLeft, Pencil, MessageSquare, Loader, RefreshCw, Upload, AlertTriangle, Activity, FileText, Trash2, Plus, CheckCircle, X, UtensilsCrossed, CheckCircle2, Calendar, Droplets, Pill } from 'lucide-vue-next'
 import type { FamilyMember } from '~/composables/useMembers'
 import type { Document } from '~/composables/useDocuments'
 import type { Medication } from '~/composables/useMedications'
@@ -268,7 +269,7 @@ async function regenerateAll() {
       <div class="flex items-start justify-between">
         <div class="flex items-center gap-3">
           <Button variant="ghost" size="icon" class="shrink-0" @click="router.back()">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            <ChevronLeft class="h-4 w-4" />
           </Button>
           <div>
             <h1 class="text-xl font-bold tracking-tight">{{ member.name }}</h1>
@@ -281,13 +282,13 @@ async function regenerateAll() {
         <div class="flex gap-1.5">
           <NuxtLink :to="`/members/${member.id}/edit`">
             <Button size="sm" variant="ghost" class="text-muted-foreground">
-              <svg xmlns="http://www.w3.org/2000/svg" class="mr-1 h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+              <Pencil class="mr-1 h-3 w-3" />
               Edit
             </Button>
           </NuxtLink>
           <NuxtLink :to="`/members/${member.id}/chat`">
             <Button size="sm" variant="ghost" class="text-muted-foreground">
-              <svg xmlns="http://www.w3.org/2000/svg" class="mr-1 h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <MessageSquare class="mr-1 h-3 w-3" />
               Chat
             </Button>
           </NuxtLink>
@@ -299,13 +300,13 @@ async function regenerateAll() {
             :disabled="regenerating"
             @click="showRegenerateDialog = true"
           >
-            <svg v-if="regenerating" xmlns="http://www.w3.org/2000/svg" class="mr-1 h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-            <svg v-else xmlns="http://www.w3.org/2000/svg" class="mr-1 h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+            <Loader v-if="regenerating" class="mr-1 h-3 w-3 animate-spin" />
+            <RefreshCw v-else class="mr-1 h-3 w-3" />
             {{ regenerating ? 'Regenerating...' : 'Regenerate' }}
           </Button>
           <NuxtLink :to="`/documents/upload?memberId=${member.id}`">
             <Button size="sm">
-              <svg xmlns="http://www.w3.org/2000/svg" class="mr-1 h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+              <Upload class="mr-1 h-3 w-3" />
               Upload
             </Button>
           </NuxtLink>
@@ -410,7 +411,7 @@ async function regenerateAll() {
             <CardContent>
               <ul class="space-y-1.5">
                 <li v-for="(risk, i) in healthSummary.summaryText.riskFactors" :key="i" class="flex items-start gap-2 text-sm">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-4 w-4 shrink-0 text-orange-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                  <AlertTriangle class="mt-0.5 h-4 w-4 shrink-0 text-orange-500" />
                   {{ risk }}
                 </li>
               </ul>
@@ -425,7 +426,7 @@ async function regenerateAll() {
             <CardContent>
               <ul class="space-y-1.5">
                 <li v-for="(trend, i) in healthSummary.summaryText.trends" :key="i" class="flex items-start gap-2 text-sm">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-4 w-4 shrink-0 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                  <Activity class="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
                   {{ trend }}
                 </li>
               </ul>
@@ -445,7 +446,7 @@ async function regenerateAll() {
                 'bg-blue-50 text-blue-800 dark:bg-blue-950/30 dark:text-blue-300': alert.type === 'info',
               }"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              <AlertTriangle class="mt-0.5 h-4 w-4 shrink-0" />
               {{ alert.message }}
             </div>
           </div>
@@ -470,8 +471,8 @@ async function regenerateAll() {
             :disabled="generatingTimeline"
             @click="generateTimeline"
           >
-            <svg v-if="generatingTimeline" xmlns="http://www.w3.org/2000/svg" class="mr-1 h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-            <svg v-else xmlns="http://www.w3.org/2000/svg" class="mr-1 h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+            <Loader v-if="generatingTimeline" class="mr-1 h-3 w-3 animate-spin" />
+            <RefreshCw v-else class="mr-1 h-3 w-3" />
             {{ generatingTimeline ? 'Generating...' : 'Regenerate Timeline' }}
           </Button>
         </div>
@@ -517,7 +518,7 @@ async function regenerateAll() {
                         :to="`/documents/${evt.documentId}`"
                         class="mt-1.5 inline-flex items-center gap-1 text-xs text-primary hover:underline"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2v6a2 2 0 0 0 2 2h6"/><path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6z"/></svg>
+                        <FileText class="h-3 w-3" />
                         {{ evt.documentTitle || 'View Document' }}
                       </NuxtLink>
                     </div>
@@ -527,7 +528,7 @@ async function regenerateAll() {
                       class="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
                       @click="deleteTimelineEvent(evt.id)"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                      <Trash2 class="h-3 w-3" />
                     </Button>
                   </div>
                 </CardContent>
@@ -560,7 +561,7 @@ async function regenerateAll() {
           <Card v-if="healthSummary.recommendations.exercise?.length">
             <CardHeader>
               <CardTitle class="text-base flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg>
+                <Activity class="h-4 w-4" />
                 Exercise &amp; Walking
               </CardTitle>
             </CardHeader>
@@ -584,7 +585,7 @@ async function regenerateAll() {
           <Card v-if="healthSummary.recommendations.diet?.length">
             <CardHeader>
               <CardTitle class="text-base flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2h20"/><path d="M3.5 2v17a2.5 2.5 0 0 0 5 0V2"/><path d="M16 2v5a4 4 0 0 0 4 4"/><path d="M20 2v20"/></svg>
+                <UtensilsCrossed class="h-4 w-4" />
                 Diet
               </CardTitle>
             </CardHeader>
@@ -607,7 +608,7 @@ async function regenerateAll() {
           <Card v-if="healthSummary.recommendations.lifestyle?.length">
             <CardHeader>
               <CardTitle class="text-base flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                <CheckCircle2 class="h-4 w-4" />
                 Lifestyle
               </CardTitle>
             </CardHeader>
@@ -630,7 +631,7 @@ async function regenerateAll() {
           <Card v-if="healthSummary.recommendations.monitoring?.length">
             <CardHeader>
               <CardTitle class="text-base flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                <Calendar class="h-4 w-4" />
                 Monitoring Schedule
               </CardTitle>
             </CardHeader>
@@ -721,7 +722,7 @@ async function regenerateAll() {
             </button>
           </div>
           <Button size="sm" @click="showAddFollowUpDialog = true">
-            <svg xmlns="http://www.w3.org/2000/svg" class="mr-1 h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+            <Plus class="mr-1 h-3 w-3" />
             Add Follow-Up
           </Button>
         </div>
@@ -749,7 +750,7 @@ async function regenerateAll() {
                     :to="`/documents/${fu.documentId}`"
                     class="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2v6a2 2 0 0 0 2 2h6"/><path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6z"/></svg>
+                    <FileText class="h-3 w-3" />
                     {{ fu.documentTitle || 'View Document' }}
                   </NuxtLink>
                 </div>
@@ -762,7 +763,7 @@ async function regenerateAll() {
                     title="Complete"
                     @click="completeFollowUp(fu.id)"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+                    <CheckCircle class="h-4 w-4" />
                   </Button>
                   <Button
                     v-if="fu.status === 'pending'"
@@ -772,7 +773,7 @@ async function regenerateAll() {
                     title="Dismiss"
                     @click="dismissFollowUp(fu.id)"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+                    <X class="h-4 w-4" />
                   </Button>
                   <Button
                     variant="ghost"
@@ -781,7 +782,7 @@ async function regenerateAll() {
                     title="Delete"
                     @click="deleteFollowUp(fu.id)"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    <Trash2 class="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>
@@ -826,8 +827,8 @@ async function regenerateAll() {
             </button>
             </div>
             <Button size="sm" :disabled="dietLoading" @click="generateDiet">
-              <svg v-if="dietLoading" xmlns="http://www.w3.org/2000/svg" class="mr-1.5 h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-              <svg v-else xmlns="http://www.w3.org/2000/svg" class="mr-1.5 h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+              <Loader v-if="dietLoading" class="mr-1.5 h-3 w-3 animate-spin" />
+              <UtensilsCrossed v-else class="mr-1.5 h-3 w-3" />
               {{ dietLoading ? 'Generating...' : 'Generate Diet Plan' }}
             </Button>
           </div>
@@ -849,7 +850,7 @@ async function regenerateAll() {
           <Card>
             <CardHeader>
               <CardTitle class="text-base flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2h20"/><path d="M3.5 2v17a2.5 2.5 0 0 0 5 0V2"/><path d="M16 2v5a4 4 0 0 0 4 4"/><path d="M20 2v20"/></svg>
+                <UtensilsCrossed class="h-4 w-4" />
                 Diet Overview
               </CardTitle>
             </CardHeader>
@@ -862,7 +863,7 @@ async function regenerateAll() {
                 <h4 class="text-sm font-medium mb-1.5">Key Guidelines</h4>
                 <ul class="space-y-1">
                   <li v-for="(g, i) in dietPlan.keyGuidelines" :key="i" class="flex items-start gap-2 text-sm text-muted-foreground">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-3 w-3 shrink-0 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+                    <CheckCircle class="mt-0.5 h-3 w-3 shrink-0 text-green-500" />
                     {{ g }}
                   </li>
                 </ul>
@@ -921,12 +922,12 @@ async function regenerateAll() {
                 </div>
 
                 <div v-if="day.hydration" class="flex items-start gap-2 pt-1">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>
+                  <Droplets class="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />
                   <span class="text-xs text-muted-foreground">{{ day.hydration }}</span>
                 </div>
 
                 <div v-if="day.supplements?.length" class="flex items-start gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-purple-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H20a2 2 0 0 1 2 2v3"/></svg>
+                  <Pill class="mt-0.5 h-3.5 w-3.5 shrink-0 text-purple-500" />
                   <span class="text-xs text-muted-foreground">Supplements: {{ day.supplements.join(', ') }}</span>
                 </div>
               </CardContent>

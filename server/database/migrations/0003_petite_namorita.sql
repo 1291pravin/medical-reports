@@ -14,7 +14,5 @@ CREATE TABLE "follow_ups" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "family_members" ADD COLUMN "weight_kg" numeric(5, 2);--> statement-breakpoint
-ALTER TABLE "family_members" ADD COLUMN "height_cm" numeric(5, 2);--> statement-breakpoint
 ALTER TABLE "follow_ups" ADD CONSTRAINT "follow_ups_family_member_id_family_members_id_fk" FOREIGN KEY ("family_member_id") REFERENCES "public"."family_members"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "follow_ups" ADD CONSTRAINT "follow_ups_document_id_documents_id_fk" FOREIGN KEY ("document_id") REFERENCES "public"."documents"("id") ON DELETE set null ON UPDATE no action;

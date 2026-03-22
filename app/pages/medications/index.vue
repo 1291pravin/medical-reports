@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { AlertTriangle, Pill } from 'lucide-vue-next'
+
 const { medications, loading, fetchMedications, deleteMedication } = useMedications()
 
 onMounted(() => fetchMedications())
@@ -53,7 +55,7 @@ const endingSoonCount = computed(() =>
 
     <!-- Ending Soon Alert -->
     <div v-if="endingSoonCount > 0" class="mb-4 flex items-center gap-2.5 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2.5 dark:border-amber-800/50 dark:bg-amber-950/20">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+      <AlertTriangle class="h-4 w-4 shrink-0 text-amber-600" />
       <span class="text-sm text-amber-800 dark:text-amber-300">
         {{ endingSoonCount }} medication{{ endingSoonCount > 1 ? 's' : '' }} ending within 3 days
       </span>
@@ -65,7 +67,7 @@ const endingSoonCount = computed(() =>
 
     <div v-else-if="medications.length === 0" class="flex flex-col items-center justify-center py-16 text-center">
       <div class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+        <Pill class="h-8 w-8 text-muted-foreground" />
       </div>
       <h3 class="font-semibold">No active medications</h3>
       <p class="mt-1 text-sm text-muted-foreground">

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ChevronLeft, Trash2 } from 'lucide-vue-next'
+
 interface DocumentDetail {
   id: string
   familyMemberId: string
@@ -73,7 +75,7 @@ function formatDate(date: string | null): string {
     <div class="mb-6 flex items-start justify-between">
       <div class="flex items-center gap-3">
         <Button variant="ghost" size="icon" @click="router.back()">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          <ChevronLeft class="h-4 w-4" />
         </Button>
         <div>
           <h1 class="text-lg font-bold tracking-tight">{{ doc.title }}</h1>
@@ -92,7 +94,7 @@ function formatDate(date: string | null): string {
         class="text-destructive hover:bg-destructive hover:text-destructive-foreground"
         @click="showDeleteDialog = true"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="mr-1 h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+        <Trash2 class="mr-1 h-3 w-3" />
         Delete
       </Button>
     </div>

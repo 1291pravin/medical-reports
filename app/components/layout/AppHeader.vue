@@ -1,6 +1,18 @@
 <script setup lang="ts">
+import { Sun, Moon, Search, Settings, LogOut } from 'lucide-vue-next'
+import { useColorMode } from '@vueuse/core'
+
 const { user, clear } = useUserSession()
 const router = useRouter()
+
+const mode = useColorMode({
+  attribute: 'class',
+  modes: { dark: 'dark', light: '' },
+})
+
+function toggleDarkMode() {
+  mode.value = mode.value === 'dark' ? 'light' : 'dark'
+}
 
 async function handleLogout() {
   await $fetch('/api/auth/logout', { method: 'POST' })
@@ -25,11 +37,14 @@ async function handleLogout() {
 
       <NuxtLink to="/search">
         <Button variant="ghost" size="icon" class="text-muted-foreground">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
-          </svg>
+          <Search class="h-[18px] w-[18px]" />
         </Button>
       </NuxtLink>
+
+      <Button variant="ghost" size="icon" class="text-muted-foreground" @click="toggleDarkMode">
+        <Sun v-if="mode === 'dark'" class="h-[18px] w-[18px]" />
+        <Moon v-else class="h-[18px] w-[18px]" />
+      </Button>
 
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
@@ -45,7 +60,15 @@ async function handleLogout() {
             <p class="text-xs text-muted-foreground">{{ user?.email }}</p>
           </div>
           <DropdownMenuSeparator />
+          <DropdownMenuItem as-child>
+            <NuxtLink to="/settings" class="flex items-center gap-2">
+              <Settings class="h-4 w-4" />
+              Settings
+            </NuxtLink>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem @click="handleLogout" class="text-destructive focus:text-destructive">
+            <LogOut class="h-4 w-4 mr-2" />
             Logout
           </DropdownMenuItem>
         </DropdownMenuContent>

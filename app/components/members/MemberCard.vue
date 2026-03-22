@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChevronRight } from 'lucide-vue-next'
 import type { FamilyMember } from '~/composables/useMembers'
 
 const props = defineProps<{
@@ -60,7 +61,7 @@ function getInitials(name: string): string {
         </div>
       </div>
 
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-muted-foreground/40 transition-colors group-hover:text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      <ChevronRight class="h-4 w-4 text-muted-foreground/40 transition-colors group-hover:text-primary" />
     </div>
   </NuxtLink>
 </template>

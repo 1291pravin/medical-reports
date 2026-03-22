@@ -25,8 +25,10 @@ export function useFollowUps() {
   }) {
     loading.value = true
     try {
+      const headers = import.meta.server ? useRequestHeaders(['cookie']) : {}
       followUps.value = await $fetch<FollowUp[]>('/api/follow-ups', {
         query: params,
+        headers,
       })
     } finally {
       loading.value = false

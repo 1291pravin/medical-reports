@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { FileText, X, CheckCircle, XCircle, AlertTriangle } from 'lucide-vue-next'
+
 const router = useRouter()
 const route = useRoute()
 const { members } = await useMembers()
@@ -131,12 +133,12 @@ function goToMember() {
             <Label>Selected Files ({{ batchFiles.length }})</Label>
             <div v-for="(bf, i) in batchFiles" :key="i" class="flex items-center justify-between rounded-md border p-2 text-sm">
               <div class="flex items-center gap-2 truncate">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+                <FileText class="h-4 w-4 shrink-0 text-muted-foreground" />
                 <span class="truncate">{{ bf.file.name }}</span>
                 <span class="shrink-0 text-xs text-muted-foreground">{{ formatSize(bf.file.size) }}</span>
               </div>
               <Button variant="ghost" size="icon" class="h-6 w-6 shrink-0" @click="removeFile(i)">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                <X class="h-3 w-3" />
               </Button>
             </div>
           </div>
@@ -173,8 +175,8 @@ function goToMember() {
               <div class="shrink-0">
                 <div v-if="bf.status === 'pending'" class="h-5 w-5 rounded-full border-2 border-muted" />
                 <div v-else-if="bf.status === 'uploading' || bf.status === 'processing'" class="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary" />
-                <svg v-else-if="bf.status === 'done'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                <svg v-else-if="bf.status === 'error'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-destructive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>
+                <CheckCircle v-else-if="bf.status === 'done'" class="h-5 w-5 text-green-600" />
+                <XCircle v-else-if="bf.status === 'error'" class="h-5 w-5 text-destructive" />
               </div>
               <div class="min-w-0 flex-1">
                 <p class="truncate font-medium">{{ bf.file.name }}</p>
@@ -196,8 +198,8 @@ function goToMember() {
     <div v-else-if="step === 'done'" class="space-y-4">
       <Card>
         <CardContent class="py-8 text-center">
-          <svg v-if="!hasErrors" xmlns="http://www.w3.org/2000/svg" class="mx-auto mb-4 h-16 w-16 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" class="mx-auto mb-4 h-16 w-16 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+          <CheckCircle v-if="!hasErrors" class="mx-auto mb-4 h-16 w-16 text-green-600" />
+          <AlertTriangle v-else class="mx-auto mb-4 h-16 w-16 text-amber-500" />
 
           <h3 class="text-lg font-semibold">
             {{ hasErrors ? 'Processing Complete (with errors)' : 'All Reports Processed!' }}
@@ -209,7 +211,7 @@ function goToMember() {
 
           <div v-if="hasErrors" class="mt-4 space-y-2 text-left">
             <div v-for="(bf, i) in batchFiles.filter(f => f.status === 'error')" :key="i" class="flex items-start gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>
+              <XCircle class="mt-0.5 h-4 w-4 shrink-0" />
               <div>
                 <span class="font-medium">{{ bf.file.name }}:</span> {{ bf.error }}
               </div>
@@ -231,8 +233,8 @@ function goToMember() {
       <div class="space-y-2">
         <div v-for="(bf, i) in batchFiles" :key="i" class="flex items-center gap-3 rounded-md border p-3 text-sm">
           <div class="shrink-0">
-            <svg v-if="bf.status === 'done'" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-            <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-destructive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>
+            <CheckCircle v-if="bf.status === 'done'" class="h-5 w-5 text-green-600" />
+            <XCircle v-else class="h-5 w-5 text-destructive" />
           </div>
           <div class="min-w-0 flex-1">
             <p class="truncate font-medium">{{ bf.file.name }}</p>

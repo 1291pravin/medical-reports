@@ -119,3 +119,17 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+
+/* Page transitions */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(4px);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
